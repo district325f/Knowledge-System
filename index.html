@@ -1594,6 +1594,97 @@
 
 
 
+
+    /* =========================
+       MEMBER SELF-SERVICE UPDATE
+    ========================= */
+    .member-self-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 999997;
+      background: rgba(15,23,42,0.60);
+      padding: 18px;
+      overflow-y: auto;
+    }
+
+    .member-self-card {
+      width: min(96%, 760px);
+      margin: 26px auto;
+      background: #ffffff;
+      border-radius: 24px;
+      padding: 22px;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.22);
+      position: relative;
+    }
+
+    .member-self-title {
+      text-align: center;
+      color: #0f4c81;
+      font-size: 25px;
+      font-weight: 900;
+      margin: 4px 0 8px;
+    }
+
+    .member-self-subtitle {
+      text-align: center;
+      color: #64748b;
+      font-size: 14px;
+      line-height: 1.7;
+      margin-bottom: 16px;
+    }
+
+    .member-self-fields {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .member-self-field {
+      background: #f8fbff;
+      border: 1px solid #dbe7f6;
+      border-radius: 14px;
+      padding: 12px;
+    }
+
+    .member-self-field label {
+      display: block;
+      font-weight: 800;
+      color: #0f4c81;
+      margin-bottom: 7px;
+    }
+
+    .member-self-field input,
+    .member-self-field textarea {
+      width: 100%;
+      border: 1px solid #cfd8e3;
+      border-radius: 11px;
+      padding: 11px 12px;
+      font-size: 15px;
+      font-family: Arial, sans-serif;
+    }
+
+    .member-self-field textarea {
+      min-height: 90px;
+      resize: vertical;
+    }
+
+    .member-self-info {
+      background: #eef6ff;
+      border: 1px solid #cfe0fb;
+      color: #0f4c81;
+      border-radius: 13px;
+      padding: 11px 12px;
+      font-size: 14px;
+      line-height: 1.7;
+      margin-top: 12px;
+    }
+
+    @media (max-width: 700px) {
+      .member-self-fields { grid-template-columns: 1fr; }
+    }
+
     /* =========================
        PHOTO UPDATE MODAL + OTP
     ========================= */
@@ -2375,6 +2466,42 @@
 
         <div id="memberResult"></div>
         <div id="birthdayContainer" style="display:none;"></div>
+      </div>
+    </div>
+
+
+    <div id="memberSelfUpdatePanel" class="member-self-modal">
+      <div class="member-self-card">
+        <button class="photo-modal-close" onclick="closeMemberSelfUpdate()">बन्द गर्नुहोस् ✖</button>
+        <div class="member-self-title">मेरो Profile Update</div>
+        <div id="memberSelfSubtitle" class="member-self-subtitle">
+          Registered email OTP verify गरेपछि मात्र update request पठाउन सकिन्छ ।
+        </div>
+
+        <div id="memberSelfVerifyArea">
+          <div id="memberSelfIdentity" class="member-self-info"></div>
+
+          <div class="otp-row" style="margin-top:12px;">
+            <input type="text" id="memberSelfOtp" class="otp-input" placeholder="OTP" inputmode="numeric" maxlength="6">
+            <button id="memberSelfSendOtpBtn" class="small-action-btn" onclick="sendMemberSelfOtp()">OTP पठाउनुहोस्</button>
+          </div>
+
+          <button id="memberSelfVerifyBtn" class="small-action-btn" style="width:100%;margin-top:8px;" onclick="verifyMemberSelfOtp()">OTP Verify गर्नुहोस्</button>
+        </div>
+
+        <div id="memberSelfEditArea" style="display:none;">
+          <div class="member-self-info">
+            Lion Portal बाट आउने core data यस section बाट परिवर्तन हुँदैन ।
+            यहाँ देखिएका additional profile fields मात्र approval request का रूपमा पठाइन्छन् ।
+            Photo update का लागि existing Photo Update option प्रयोग गर्नुहोस् ।
+          </div>
+
+          <div id="memberSelfFields" class="member-self-fields"></div>
+
+          <button id="memberSelfSubmitBtn" class="photo-primary-btn" style="margin-top:16px;" onclick="submitMemberSelfUpdate()">
+            Update Request पठाउनुहोस्
+          </button>
+        </div>
       </div>
     </div>
 
@@ -3788,6 +3915,7 @@
                 buildMemberFieldsHtml(data, { includeEmpty: true }) +
               '</div>' +
               '<div class="member-actions no-print">' +
+                '<button class="member-action-btn" onclick="openMemberSelfUpdate()">✏ Update My Profile</button>' +
                 '<button class="member-action-btn" onclick="printMemberCard()">Print</button>' +
                 '<button class="member-action-btn" onclick="printCompactMemberCard()">Card Print</button>' +
               '</div>' +
@@ -3798,6 +3926,160 @@
           resultDiv.innerHTML = '<div class="empty">Error: ' + escapeHtmlClient(error && error.message ? error.message : error) + '</div>';
         })
         .searchMember(memberId);
+    }
+
+
+    var memberSelfToken = "";
+    var memberSelfFieldsCache = [];
+
+    function openMemberSelfUpdate() {
+      if (!currentMemberData || !currentMemberData.memberId) {
+        showCustomMessage("पहिला Member Search गर्नुहोस् ।");
+        return;
+      }
+
+      memberSelfToken = "";
+      memberSelfFieldsCache = [];
+      document.getElementById("memberSelfOtp").value = "";
+      document.getElementById("memberSelfEditArea").style.display = "none";
+      document.getElementById("memberSelfVerifyArea").style.display = "block";
+      document.getElementById("memberSelfFields").innerHTML = "";
+      document.getElementById("memberSelfSendOtpBtn").style.display = "inline-block";
+      document.getElementById("memberSelfVerifyBtn").style.display = "block";
+      document.getElementById("memberSelfUpdatePanel").style.display = "block";
+      document.getElementById("memberSelfIdentity").innerHTML =
+        '<div class="loading-wrap"><span class="spinner"></span><span class="loading-text">Member verification detail load हुँदैछ...</span></div>';
+
+      google.script.run
+        .withSuccessHandler(function(info) {
+          document.getElementById("memberSelfIdentity").innerHTML =
+            '<b>' + escapeHtmlClient(info.name || '') + '</b><br>' +
+            'Member ID: ' + escapeHtmlClient(info.memberId || '') + '<br>' +
+            'Club: ' + escapeHtmlClient(info.club || '') + '<br>' +
+            'OTP: ' + escapeHtmlClient(info.emailMasked || '');
+        })
+        .withFailureHandler(function(err) {
+          document.getElementById("memberSelfIdentity").innerHTML =
+            '<div class="empty">' + escapeHtmlClient(err && err.message ? err.message : err) + '</div>';
+        })
+        .getMemberSelfServiceInfo(currentMemberData.memberId);
+    }
+
+    function closeMemberSelfUpdate() {
+      document.getElementById("memberSelfUpdatePanel").style.display = "none";
+      memberSelfToken = "";
+      memberSelfFieldsCache = [];
+    }
+
+    function sendMemberSelfOtp() {
+      if (!currentMemberData || !currentMemberData.memberId) return;
+
+      setBtnLoading("memberSelfSendOtpBtn", true, "OTP पठाउँदैछ...", "OTP पठाउनुहोस्");
+
+      google.script.run
+        .withSuccessHandler(function(res) {
+          setBtnLoading("memberSelfSendOtpBtn", false, "", "OTP पठाउनुहोस्");
+          document.getElementById("memberSelfSendOtpBtn").style.display = "none";
+          showCustomMessage("OTP registered email " + (res.emailMasked || "") + " मा पठाइएको छ ।");
+        })
+        .withFailureHandler(function(err) {
+          setBtnLoading("memberSelfSendOtpBtn", false, "", "OTP पठाउनुहोस्");
+          showCustomMessage("OTP पठाउन सकिएन: " + (err && err.message ? err.message : err));
+        })
+        .sendMemberProfileOtp(currentMemberData.memberId);
+    }
+
+    function verifyMemberSelfOtp() {
+      if (!currentMemberData || !currentMemberData.memberId) return;
+
+      var otp = document.getElementById("memberSelfOtp").value.trim();
+      if (!otp) {
+        showCustomMessage("OTP लेख्नुहोस् ।");
+        return;
+      }
+
+      setBtnLoading("memberSelfVerifyBtn", true, "Verify हुँदैछ...", "OTP Verify गर्नुहोस्");
+
+      google.script.run
+        .withSuccessHandler(function(res) {
+          setBtnLoading("memberSelfVerifyBtn", false, "", "OTP Verify गर्नुहोस्");
+          if (!res || !res.verified) {
+            showCustomMessage("OTP verify हुन सकेन ।");
+            return;
+          }
+
+          memberSelfToken = res.token || "";
+          memberSelfFieldsCache = res.fields || [];
+          document.getElementById("memberSelfVerifyArea").style.display = "none";
+          document.getElementById("memberSelfEditArea").style.display = "block";
+          renderMemberSelfFields();
+          showCustomMessage("OTP verified भयो । अब आफ्नो profile update request तयार गर्नुहोस् ।");
+        })
+        .withFailureHandler(function(err) {
+          setBtnLoading("memberSelfVerifyBtn", false, "", "OTP Verify गर्नुहोस्");
+          showCustomMessage("OTP verify error: " + (err && err.message ? err.message : err));
+        })
+        .verifyMemberProfileOtp(currentMemberData.memberId, otp);
+    }
+
+    function renderMemberSelfFields() {
+      var box = document.getElementById("memberSelfFields");
+
+      if (!memberSelfFieldsCache.length) {
+        box.innerHTML = '<div class="empty">Self-service update का लागि additional profile fields भेटिएनन् ।</div>';
+        document.getElementById("memberSelfSubmitBtn").style.display = "none";
+        return;
+      }
+
+      document.getElementById("memberSelfSubmitBtn").style.display = "block";
+
+      box.innerHTML = memberSelfFieldsCache.map(function(f) {
+        var control = f.textarea
+          ? '<textarea data-self-field="' + escapeAttributeClient(f.key) + '">' + escapeHtmlClient(f.value || '') + '</textarea>'
+          : '<input data-self-field="' + escapeAttributeClient(f.key) + '" value="' + escapeAttributeClient(f.value || '') + '">';
+
+        return '<div class="member-self-field">' +
+          '<label>' + escapeHtmlClient(f.label || '') + '</label>' +
+          control +
+          '</div>';
+      }).join('');
+    }
+
+    function submitMemberSelfUpdate() {
+      if (!currentMemberData || !currentMemberData.memberId || !memberSelfToken) {
+        showCustomMessage("Verification session छैन । OTP फेरि verify गर्नुहोस् ।");
+        return;
+      }
+
+      var changes = {};
+      document.querySelectorAll("#memberSelfFields [data-self-field]").forEach(function(el) {
+        changes[el.getAttribute("data-self-field")] = el.value;
+      });
+
+      var confirmText =
+        "Member ID: " + currentMemberData.memberId + "\n\n" +
+        "तपाईंको परिवर्तन तुरुन्त live हुँदैन । पहिले Admin review र आवश्यक भए Super Admin final approval पछि मात्र update हुनेछ ।\n\n" +
+        "Update request पठाउने हो ?";
+
+      if (!window.confirm(confirmText)) return;
+
+      setBtnLoading("memberSelfSubmitBtn", true, "Request पठाउँदैछ...", "Update Request पठाउनुहोस्");
+
+      google.script.run
+        .withSuccessHandler(function(res) {
+          setBtnLoading("memberSelfSubmitBtn", false, "", "Update Request पठाउनुहोस्");
+          memberSelfToken = "";
+          document.getElementById("memberSelfUpdatePanel").style.display = "none";
+          showCustomMessage(
+            "Update request सफलतापूर्वक पठाइयो ।\nRequest ID: " + (res.requestId || "") +
+            "\nAdmin approval पछि मात्र data update हुनेछ ।"
+          );
+        })
+        .withFailureHandler(function(err) {
+          setBtnLoading("memberSelfSubmitBtn", false, "", "Update Request पठाउनुहोस्");
+          showCustomMessage("Request पठाउन सकिएन: " + (err && err.message ? err.message : err));
+        })
+        .submitMemberSelfUpdateRequest(currentMemberData.memberId, memberSelfToken, changes);
     }
 
     function memberBox(label, value) {
