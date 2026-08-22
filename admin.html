@@ -49,6 +49,41 @@
     .login-card p { text-align:center; color:#64748b; line-height:1.6; }
     .login-card button { width:100%; margin-top:14px; }
     .spinner { width:17px;height:17px;border:3px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;display:inline-block;animation:spin .8s linear infinite;vertical-align:middle;margin-right:7px; }
+    button { transition: transform .12s ease, opacity .12s ease, box-shadow .12s ease; }
+    button.ui-clicked { transform: scale(.97); opacity:.88; }
+    button.ui-busy { pointer-events:none; opacity:.72; }
+    button.ui-busy .spinner { margin-right:7px; }
+    .global-working {
+      position: fixed;
+      right: 18px;
+      top: 18px;
+      z-index: 10050;
+      display: none;
+      align-items: center;
+      gap: 9px;
+      background: rgba(15,76,129,.96);
+      color: #fff;
+      padding: 11px 14px;
+      border-radius: 999px;
+      box-shadow: 0 10px 24px rgba(15,76,129,.22);
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .global-working .spinner {
+      width:15px;height:15px;border-width:2px;margin:0;
+    }
+    .inline-status {
+      margin-top:10px;
+      padding:9px 11px;
+      border-radius:10px;
+      display:none;
+      font-size:13px;
+      font-weight:700;
+      line-height:1.5;
+    }
+    .inline-status.pending { display:block; background:#fff7ed; color:#9a3412; border:1px solid #fed7aa; }
+    .inline-status.saved { display:block; background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; }
+
     @keyframes spin { to { transform:rotate(360deg); } }
     .msg { position:fixed; inset:0; background:rgba(15,23,42,.5); display:none; align-items:center; justify-content:center; z-index:9999; padding:18px; }
     .msg-card { width:min(92%,440px); background:#fff; padding:22px; border-radius:18px; text-align:center; box-shadow:0 20px 50px rgba(0,0,0,.2); }
@@ -203,6 +238,7 @@
         <label>Admin छान्नुहोस्</label>
         <select id="permAdminSelect" onchange="loadPermissions()"><option value="">-- Select Admin --</option></select>
         <div id="permGrid" style="margin-top:14px;"></div>
+        <div id="permDirtyStatus" class="inline-status"></div>
         <button id="savePermBtn" class="primary" style="margin-top:14px;display:none;" onclick="savePermissions()">Save Permissions</button>
       </div>
     </section>
@@ -277,7 +313,8 @@
         <h2>Approval Settings</h2>
         <p style="color:#64748b;">ON हुँदा Admin approval पछि Super Admin final approval आवश्यक हुन्छ ।</p>
         <div id="approvalSettings"></div>
-        <button class="primary" style="margin-top:14px;" onclick="saveApprovalSettings()">Save Settings</button>
+        <div id="approvalDirtyStatus" class="inline-status"></div>
+        <button id="approvalSaveBtn" class="primary" style="margin-top:14px;" onclick="saveApprovalSettings()">Save Settings</button>
       </div>
     </section>
 
@@ -302,6 +339,12 @@
       </div>
     </section>
   </main>
+</div>
+
+
+<div id="globalWorking" class="global-working">
+  <span class="spinner"></span>
+  <span id="globalWorkingText">प्रक्रिया भइरहेको छ...</span>
 </div>
 
 <div id="msg" class="msg"><div class="msg-card"><p id="msgText"></p><button class="primary" onclick="closeMsg()">OK</button></div></div>
@@ -336,7 +379,93 @@ document.addEventListener('contextmenu', function(e) {
   if (!e.target.closest('input,textarea')) e.preventDefault();
 });
 
+
+let lastClickedButton = null;
+let activeRequestCount = 0;
+
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  lastClickedButton = btn;
+  btn.classList.add('ui-clicked');
+  setTimeout(function(){ btn.classList.remove('ui-clicked'); }, 220);
+}, true);
+
+function actionLabel(action) {
+  const map = {
+    adminLogin:'Login हुँदैछ...',
+    adminLogout:'Logout हुँदैछ...',
+    adminGetSession:'Session जाँच हुँदैछ...',
+    adminGetDashboard:'Dashboard load हुँदैछ...',
+    adminChangeOwnPassword:'Password update हुँदैछ...',
+    superAdminListAdmins:'Admin list load हुँदैछ...',
+    superAdminCreateAdmin:'Admin account तयार हुँदैछ...',
+    superAdminSetAdminStatus:'Admin status update हुँदैछ...',
+    superAdminGetPermissions:'Permissions load हुँदैछ...',
+    superAdminSavePermissions:'Permissions save हुँदैछ...',
+    superAdminGetApprovalSettings:'Approval settings load हुँदैछ...',
+    superAdminSaveApprovalSettings:'Approval settings save हुँदैछ...',
+    superAdminGetAuditLog:'Audit log load हुँदैछ...',
+    adminListModuleRecords:'Records load हुँदैछ...',
+    adminGetModuleRecord:'Record load हुँदैछ...',
+    adminSaveModuleRecord:'Record save हुँदैछ...',
+    adminDeleteModuleRecord:'Delete process हुँदैछ...',
+    adminFindMemberForManagement:'Member खोजिँदैछ...',
+    adminUpdateMemberData:'Member update process हुँदैछ...',
+    adminReinstateMember:'Reinstate process हुँदैछ...',
+    adminSubmitDeleteRequest:'Delete request पठाइँदैछ...',
+    superAdminListDeleteRequests:'Delete requests load हुँदैछ...',
+    superAdminReviewDeleteRequest:'Delete request review हुँदैछ...',
+    adminSubmitMemberUpdateRequest:'Member request पठाइँदैछ...',
+    adminListMemberUpdateRequests:'Member requests load हुँदैछ...',
+    adminReviewMemberUpdateRequest:'Member request review हुँदैछ...',
+    superAdminListMemberUpdateRequests:'Member requests load हुँदैछ...',
+    superAdminReviewMemberUpdateRequest:'Final approval process हुँदैछ...',
+    superAdminGetDataAudit:'Data audit load हुँदैछ...',
+    superAdminGetSecurityEvents:'Security events load हुँदैछ...'
+  };
+  return map[action] || 'प्रक्रिया भइरहेको छ...';
+}
+
+function beginRequestFeedback(action) {
+  const btn = lastClickedButton;
+  lastClickedButton = null;
+  activeRequestCount++;
+
+  const working = document.getElementById('globalWorking');
+  const workingText = document.getElementById('globalWorkingText');
+  if (working && workingText) {
+    workingText.textContent = actionLabel(action);
+    working.style.display = 'flex';
+  }
+
+  let oldHtml = null;
+  if (btn && !btn.disabled) {
+    oldHtml = btn.innerHTML;
+    btn.dataset.busyOldHtml = oldHtml;
+    btn.disabled = true;
+    btn.classList.add('ui-busy');
+    btn.innerHTML = '<span class="spinner"></span>' + actionLabel(action);
+  }
+
+  return function endRequestFeedback() {
+    activeRequestCount = Math.max(0, activeRequestCount - 1);
+    if (btn) {
+      btn.disabled = false;
+      btn.classList.remove('ui-busy');
+      if (btn.dataset.busyOldHtml) {
+        btn.innerHTML = btn.dataset.busyOldHtml;
+        delete btn.dataset.busyOldHtml;
+      }
+    }
+    if (activeRequestCount === 0 && working) {
+      working.style.display = 'none';
+    }
+  };
+}
+
 function api(action,args) {
+  const endFeedback = beginRequestFeedback(action);
   return fetch(API_URL, {
     method:'POST',
     body:JSON.stringify({action:action,args:Array.isArray(args)?args:[]}),
@@ -347,7 +476,7 @@ function api(action,args) {
     try { d=JSON.parse(t); } catch(e) { throw new Error('Backend response प्राप्त हुन सकेन ।'); }
     if (!d || d.ok!==true) throw new Error(d && d.error ? d.error : 'Request असफल भयो ।');
     return d.result;
-  });
+  }).finally(endFeedback);
 }
 
 function message(text) {
@@ -462,10 +591,16 @@ function showPanel(name,btn) {
 }
 
 async function logout() {
-  try { if(sessionToken) await api('adminLogout',[sessionToken]); } catch(e) {}
-  sessionToken=''; currentUser=null; currentModules=[];
-  sessionStorage.removeItem('lks_admin_token');
-  location.reload();
+  universalConfirm(
+    'Logout Confirmation',
+    'Admin Portal बाट Logout गर्ने हो ?',
+    async function(){
+      try { if(sessionToken) await api('adminLogout',[sessionToken]); } catch(e) {}
+      sessionToken=''; currentUser=null; currentModules=[];
+      sessionStorage.removeItem('lks_admin_token');
+      location.reload();
+    }
+  );
 }
 
 async function loadAdmins() {
@@ -493,23 +628,39 @@ async function createAdmin() {
     email:document.getElementById('newAdminEmail').value.trim()
   };
   if(!payload.username) return message('Admin username आवश्यक छ ।');
-  try {
-    const r=await api('superAdminCreateAdmin',[sessionToken,payload]);
-    document.getElementById('newAdminUsername').value='';
-    document.getElementById('newAdminName').value='';
-    document.getElementById('newAdminEmail').value='';
-    await loadAdmins();
-    document.getElementById('msgText').innerHTML='Admin account तयार भयो ।<br><br>Username: <b>'+esc(r.username)+'</b><br><div class="temp-pass">'+esc(r.temporaryPassword)+'</div><br>Temporary password सुरक्षित रूपमा Admin लाई दिनुहोस् ।';
-    document.getElementById('msg').style.display='flex';
-  } catch(e) { message(e.message||e); }
+
+  universalConfirm(
+    'Create Admin Confirmation',
+    'Username: '+payload.username+'\nDisplay Name: '+(payload.displayName||'-')+'\nEmail: '+(payload.email||'-')+'\n\nयो Admin account तयार गर्ने हो ?',
+    async function(){
+      try {
+        const r=await api('superAdminCreateAdmin',[sessionToken,payload]);
+        document.getElementById('newAdminUsername').value='';
+        document.getElementById('newAdminName').value='';
+        document.getElementById('newAdminEmail').value='';
+        await loadAdmins();
+        document.getElementById('msgText').innerHTML='Admin account तयार भयो ।<br><br>Username: <b>'+esc(r.username)+'</b><br><div class="temp-pass">'+esc(r.temporaryPassword)+'</div><br>Temporary password सुरक्षित रूपमा Admin लाई दिनुहोस् ।';
+        document.getElementById('msg').style.display='flex';
+      } catch(e) { message(e.message||e); }
+    }
+  );
 }
 
 async function setAdminStatus(adminId,status) {
-  try {
-    await api('superAdminSetAdminStatus',[sessionToken,adminId,status]);
-    await loadAdmins();
-    message(status==='ACTIVE'?'Admin Account Active भयो ।':'Admin Account Inactive भयो । Existing sessions पनि revoke गरिएको छ ।');
-  } catch(e) { message(e.message||e); }
+  const isActivate = status === 'ACTIVE';
+  universalConfirm(
+    isActivate ? 'Admin Account Activate' : 'Admin Account Inactive',
+    isActivate
+      ? 'यो Admin account Active गर्ने हो ?'
+      : 'यो Admin account Inactive गर्ने हो ? Existing active sessions पनि revoke हुनेछन् ।',
+    async function(){
+      try {
+        await api('superAdminSetAdminStatus',[sessionToken,adminId,status]);
+        await loadAdmins();
+        message(isActivate ? 'Admin Account Active भयो ।' : 'Admin Account Inactive भयो । Existing sessions revoke गरिएको छ ।');
+      } catch(e) { message(e.message||e); }
+    }
+  );
 }
 
 async function loadPermissions() {
@@ -539,12 +690,13 @@ async function loadPermissions() {
 }
 
 function checkCell(module,key,checked,hide) {
-  return '<div class="check-cell '+(hide?'hide-mobile':'')+'"><input type="checkbox" data-module="'+escAttr(module)+'" data-perm="'+key+'" '+(checked?'checked':'')+'></div>';
+  return '<div class="check-cell '+(hide?'hide-mobile':'')+'"><input type="checkbox" data-module="'+escAttr(module)+'" data-perm="'+key+'" onchange="markPermissionDirty()" '+(checked?'checked':'')+'></div>';
 }
 
 async function savePermissions() {
   const adminId=document.getElementById('permAdminSelect').value;
-  if(!adminId) return;
+  if(!adminId) return message('Admin छान्नुहोस् ।');
+
   const rows={};
   document.querySelectorAll('#permGrid input[type=checkbox]').forEach(c=>{
     const m=c.dataset.module;
@@ -552,10 +704,22 @@ async function savePermissions() {
     const key='can'+c.dataset.perm.charAt(0).toUpperCase()+c.dataset.perm.slice(1);
     rows[m][key]=c.checked;
   });
-  try {
-    await api('superAdminSavePermissions',[sessionToken,adminId,Object.values(rows)]);
-    message('Admin permissions सफलतापूर्वक update भयो ।');
-  } catch(e) { message(e.message||e); }
+
+  universalConfirm(
+    'Permission Update Confirmation',
+    'छानिएको Admin को permission matrix update गर्ने हो ?',
+    async function(){
+      try {
+        await api('superAdminSavePermissions',[sessionToken,adminId,Object.values(rows)]);
+        const ps=document.getElementById('permDirtyStatus');
+        if(ps) {
+          ps.className='inline-status saved';
+          ps.textContent='Admin permissions सफलतापूर्वक सुरक्षित भयो ।';
+        }
+        message('Admin permissions सफलतापूर्वक update भयो ।');
+      } catch(e) { message(e.message||e); }
+    }
+  );
 }
 
 async function loadApprovalSettings() {
@@ -564,7 +728,7 @@ async function loadApprovalSettings() {
     document.getElementById('approvalSettings').innerHTML=approvalCache.map((s,i)=>
       '<div style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px 0;border-bottom:1px solid #e5e7eb;">'+
       '<div><b>'+esc(s.description)+'</b><div style="font-size:12px;color:#64748b;margin-top:4px;">'+esc(s.key)+'</div></div>'+
-      '<label style="margin:0;white-space:nowrap;"><input style="width:auto;" type="checkbox" data-approval="'+escAttr(s.key)+'" '+(s.enabled?'checked':'')+'> ON</label></div>'
+      '<label style="margin:0;white-space:nowrap;"><input style="width:auto;" type="checkbox" data-approval="'+escAttr(s.key)+'" onchange="markApprovalDirty()" '+(s.enabled?'checked':'')+'> ON</label></div>'
     ).join('');
   } catch(e) { message(e.message||e); }
 }
@@ -572,10 +736,22 @@ async function loadApprovalSettings() {
 async function saveApprovalSettings() {
   const settings=[];
   document.querySelectorAll('[data-approval]').forEach(c=>settings.push({key:c.dataset.approval,enabled:c.checked}));
-  try {
-    await api('superAdminSaveApprovalSettings',[sessionToken,settings]);
-    message('Approval settings update भयो ।');
-  } catch(e) { message(e.message||e); }
+
+  universalConfirm(
+    'Approval Settings Confirmation',
+    'Approval workflow settings save गर्ने हो ?',
+    async function(){
+      try {
+        await api('superAdminSaveApprovalSettings',[sessionToken,settings]);
+        const s=document.getElementById('approvalDirtyStatus');
+        if(s) {
+          s.className='inline-status saved';
+          s.textContent='Approval Settings सफलतापूर्वक सुरक्षित भयो ।';
+        }
+        message('Approval Settings सफलतापूर्वक सुरक्षित भयो ।');
+      } catch(e) { message(e.message||e); }
+    }
+  );
 }
 
 async function loadAudit() {
@@ -590,13 +766,20 @@ async function changePassword() {
   const newP=document.getElementById('newPass').value;
   const confirm=document.getElementById('confirmPass').value;
   if(newP!==confirm) return message('नयाँ Password र Confirm Password मिलेन ।');
-  try {
-    await api('adminChangeOwnPassword',[sessionToken,oldP,newP]);
-    document.getElementById('oldPass').value='';
-    document.getElementById('newPass').value='';
-    document.getElementById('confirmPass').value='';
-    message('Password सफलतापूर्वक परिवर्तन भयो ।');
-  } catch(e) { message(e.message||e); }
+
+  universalConfirm(
+    'Password Change Confirmation',
+    'Admin password परिवर्तन गर्ने हो ?',
+    async function(){
+      try {
+        await api('adminChangeOwnPassword',[sessionToken,oldP,newP]);
+        document.getElementById('oldPass').value='';
+        document.getElementById('newPass').value='';
+        document.getElementById('confirmPass').value='';
+        message('Password सफलतापूर्वक परिवर्तन भयो ।');
+      } catch(e) { message(e.message||e); }
+    }
+  );
 }
 
 
@@ -843,6 +1026,7 @@ async function reinstateMemberManage(memberId) {
 let pendingConfirmAction=null;
 
 function universalConfirm(title,text,action) {
+  lastClickedButton = null;
   pendingConfirmAction=typeof action==='function'?action:null;
   document.getElementById('confirmTitle').textContent=title||'Confirmation';
   document.getElementById('confirmText').textContent=String(text||'');
@@ -977,6 +1161,22 @@ async function loadSecurityEvents() {
   } catch(e) { message(e.message||e); }
 }
 
+
+
+function markApprovalDirty() {
+  const s=document.getElementById('approvalDirtyStatus');
+  if(!s) return;
+  s.className='inline-status pending';
+  s.textContent='Setting परिवर्तन गरिएको छ । Save Settings थिच्नुहोस् ।';
+}
+
+
+function markPermissionDirty() {
+  const s=document.getElementById('permDirtyStatus');
+  if(!s) return;
+  s.className='inline-status pending';
+  s.textContent='Permission परिवर्तन गरिएको छ । Save Permissions थिच्नुहोस् ।';
+}
 
 function esc(v) { return String(v==null?'':v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function escAttr(v) { return esc(v).replace(/'/g,'&#39;'); }
