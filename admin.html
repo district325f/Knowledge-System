@@ -28,7 +28,8 @@
     .stat b { display:block; font-size:25px; color:#1739ba; margin-top:6px; }
     h2 { color:#0f4c81; margin:0 0 14px; }
     label { display:block; font-weight:800; margin:10px 0 6px; }
-    input,select { width:100%; padding:12px; border:1px solid #cbd5e1; border-radius:11px; font-size:15px; }
+    input,select,textarea { width:100%; padding:12px; border:1px solid #cbd5e1; border-radius:11px; font-size:15px; }
+    textarea { min-height:100px; resize:vertical; }
     button.primary,button.secondary,button.danger { border:none; border-radius:11px; padding:11px 14px; font-weight:800; cursor:pointer; }
     button.primary { background:linear-gradient(135deg,#1a73e8,#0f4c81); color:#fff; }
     button.secondary { background:#e2e8f0; color:#334155; }
@@ -85,6 +86,10 @@
       <p id="sideRole">Admin Portal</p>
     </div>
     <button class="nav-btn active" data-panel="dashboard" onclick="showPanel('dashboard',this)">🏠 Dashboard</button>
+    <button class="nav-btn module-nav" data-module="QUIZ" data-panel="quizmanage" onclick="showPanel('quizmanage',this)">❓ Quiz Management</button>
+    <button class="nav-btn module-nav" data-module="PROGRAMS" data-panel="programmanage" onclick="showPanel('programmanage',this)">🗓 Program Management</button>
+    <button class="nav-btn module-nav" data-module="KNOWLEDGE" data-panel="knowledgemanage" onclick="showPanel('knowledgemanage',this)">💡 Knowledge Management</button>
+    <button class="nav-btn module-nav" data-module="MEMBERS" data-panel="membermanage" onclick="showPanel('membermanage',this)">👤 Member Management</button>
     <button class="nav-btn super-only" data-panel="admins" onclick="showPanel('admins',this)">👥 Admin Management</button>
     <button class="nav-btn super-only" data-panel="permissions" onclick="showPanel('permissions',this)">✅ Permissions</button>
     <button class="nav-btn super-only" data-panel="approvals" onclick="showPanel('approvals',this)">🛡 Approval Settings</button>
@@ -118,6 +123,58 @@
       <div class="notice">
         Admin लाई full database export/download उपलब्ध छैन । Data access server-side permission अनुसार मात्र हुन्छ ।
       </div>
+    </section>
+
+
+    <section id="panel-quizmanage" class="panel">
+      <div class="card">
+        <h2>Quiz Management</h2>
+        <div class="actions">
+          <input id="quizSearch" placeholder="Question search..." style="max-width:420px;">
+          <button class="secondary" onclick="loadModuleList('QUIZ',1)">Search</button>
+          <button id="quizAddBtn" class="primary" onclick="openModuleEditor('QUIZ',0)">+ Add Question</button>
+        </div>
+      </div>
+      <div id="quizEditor" class="card" style="display:none;"></div>
+      <div class="card"><div id="quizList"></div></div>
+    </section>
+
+    <section id="panel-programmanage" class="panel">
+      <div class="card">
+        <h2>Upcoming Program Management</h2>
+        <div class="actions">
+          <input id="programsSearch" placeholder="Program search..." style="max-width:420px;">
+          <button class="secondary" onclick="loadModuleList('PROGRAMS',1)">Search</button>
+          <button id="programsAddBtn" class="primary" onclick="openModuleEditor('PROGRAMS',0)">+ Add Program</button>
+        </div>
+      </div>
+      <div id="programsEditor" class="card" style="display:none;"></div>
+      <div class="card"><div id="programsList"></div></div>
+    </section>
+
+    <section id="panel-knowledgemanage" class="panel">
+      <div class="card">
+        <h2>Knowledge Hub Management</h2>
+        <div class="actions">
+          <input id="knowledgeSearch" placeholder="Question search..." style="max-width:420px;">
+          <button class="secondary" onclick="loadModuleList('KNOWLEDGE',1)">Search</button>
+          <button id="knowledgeAddBtn" class="primary" onclick="openModuleEditor('KNOWLEDGE',0)">+ Add Knowledge</button>
+        </div>
+      </div>
+      <div id="knowledgeEditor" class="card" style="display:none;"></div>
+      <div class="card"><div id="knowledgeList"></div></div>
+    </section>
+
+    <section id="panel-membermanage" class="panel">
+      <div class="card">
+        <h2>Member Management</h2>
+        <p style="color:#64748b;line-height:1.6;">पूर्ण member database list देखाइँदैन । Member ID बाट आवश्यक member मात्र search गरेर manage गर्नुहोस् ।</p>
+        <div class="actions">
+          <input id="memberManageId" placeholder="Member ID" style="max-width:360px;">
+          <button class="primary" onclick="findMemberManage()">Search Member</button>
+        </div>
+      </div>
+      <div id="memberManageResult"></div>
     </section>
 
     <section id="panel-admins" class="panel super-only">
@@ -273,6 +330,13 @@ async function openApp() {
     el.style.display=currentUser.role==='SUPER_ADMIN'?'':'none';
   });
 
+  document.querySelectorAll('.module-nav').forEach(el=>{
+    const mod=el.dataset.module;
+    const p=getModulePermission(mod);
+    el.style.display=(currentUser.role==='SUPER_ADMIN'||(p&&p.canView))?'':'none';
+  });
+
+  applyOperationalButtonPermissions();
   renderModules();
   try {
     const dash=await api('adminGetDashboard',[sessionToken]);
@@ -310,6 +374,9 @@ function showPanel(name,btn) {
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active');
   if(name==='audit' && currentUser && currentUser.role==='SUPER_ADMIN') loadAudit();
+  if(name==='quizmanage') loadModuleList('QUIZ',1);
+  if(name==='programmanage') loadModuleList('PROGRAMS',1);
+  if(name==='knowledgemanage') loadModuleList('KNOWLEDGE',1);
 }
 
 async function logout() {
@@ -449,6 +516,206 @@ async function changePassword() {
     message('Password सफलतापूर्वक परिवर्तन भयो ।');
   } catch(e) { message(e.message||e); }
 }
+
+
+function getModulePermission(moduleKey) {
+  if(currentUser && currentUser.role==='SUPER_ADMIN') {
+    return {canView:true,canAdd:true,canEdit:true,canDelete:true,canApprove:true,canReinstate:true};
+  }
+  return (currentModules||[]).find(m=>m.module===moduleKey)||null;
+}
+
+function applyOperationalButtonPermissions() {
+  [['QUIZ','quizAddBtn'],['PROGRAMS','programsAddBtn'],['KNOWLEDGE','knowledgeAddBtn']].forEach(x=>{
+    const el=document.getElementById(x[1]);
+    if(!el) return;
+    const p=getModulePermission(x[0]);
+    el.style.display=(p&&p.canAdd)?'':'none';
+  });
+}
+
+function modulePrefix(moduleKey) {
+  if(moduleKey==='QUIZ') return 'quiz';
+  if(moduleKey==='PROGRAMS') return 'programs';
+  if(moduleKey==='KNOWLEDGE') return 'knowledge';
+  return moduleKey.toLowerCase();
+}
+
+function moduleSearchValue(moduleKey) {
+  const el=document.getElementById(modulePrefix(moduleKey)+'Search');
+  return el?el.value.trim():'';
+}
+
+async function loadModuleList(moduleKey,page) {
+  const p=getModulePermission(moduleKey);
+  if(!p||!p.canView) return;
+  const prefix=modulePrefix(moduleKey);
+  const box=document.getElementById(prefix+'List');
+  if(!box) return;
+  box.innerHTML='<div style="padding:16px;text-align:center;">Loading...</div>';
+  try {
+    const d=await api('adminListModuleRecords',[sessionToken,moduleKey,moduleSearchValue(moduleKey),page||1,20]);
+    renderModuleList(moduleKey,d);
+  } catch(e) {
+    box.innerHTML='<div class="notice">'+esc(e.message||e)+'</div>';
+  }
+}
+
+function renderModuleList(moduleKey,d) {
+  const prefix=modulePrefix(moduleKey);
+  const box=document.getElementById(prefix+'List');
+  const p=getModulePermission(moduleKey);
+  const fields=d.fields||[];
+  let html='<div style="overflow:auto;"><table><thead><tr>';
+  fields.forEach(f=>html+='<th>'+esc(f.label)+'</th>');
+  html+='<th>Action</th></tr></thead><tbody>';
+
+  (d.rows||[]).forEach(r=>{
+    html+='<tr>';
+    fields.forEach(f=>{
+      let value=String(r[f.key]||'');
+      if(value.length>90) value=value.substring(0,90)+'…';
+      html+='<td>'+esc(value)+'</td>';
+    });
+    html+='<td><div class="actions">';
+    if(p&&p.canEdit) html+='<button class="secondary" onclick="openModuleEditor(\''+moduleKey+'\','+r.rowNumber+')">Edit</button>';
+    if(p&&p.canDelete) html+='<button class="danger" onclick="deleteModuleRecord(\''+moduleKey+'\','+r.rowNumber+')">Delete</button>';
+    html+='</div></td></tr>';
+  });
+  html+='</tbody></table></div>';
+
+  html+='<div class="actions" style="justify-content:center;margin-top:14px;">';
+  if(d.page>1) html+='<button class="secondary" onclick="loadModuleList(\''+moduleKey+'\','+(d.page-1)+')">Previous</button>';
+  html+='<span class="badge">Page '+d.page+' / '+d.totalPages+' • '+d.total+' records</span>';
+  if(d.page<d.totalPages) html+='<button class="secondary" onclick="loadModuleList(\''+moduleKey+'\','+(d.page+1)+')">Next</button>';
+  html+='</div>';
+
+  box.innerHTML=html;
+}
+
+async function openModuleEditor(moduleKey,rowNumber) {
+  const p=getModulePermission(moduleKey);
+  const needed=rowNumber?'canEdit':'canAdd';
+  if(!p||!p[needed]) return message('यो कार्यका लागि permission छैन ।');
+
+  const prefix=modulePrefix(moduleKey);
+  const box=document.getElementById(prefix+'Editor');
+  box.style.display='block';
+  box.innerHTML='<h2>'+(rowNumber?'Edit':'Add')+'</h2><div>Loading...</div>';
+
+  try {
+    let fields,record={rowNumber:0};
+    if(rowNumber) {
+      const d=await api('adminGetModuleRecord',[sessionToken,moduleKey,rowNumber]);
+      fields=d.fields; record=d.record||{};
+    } else {
+      const list=await api('adminListModuleRecords',[sessionToken,moduleKey,'',1,5]);
+      fields=list.fields||[];
+    }
+
+    let html='<h2>'+(rowNumber?'Edit Record':'Add New Record')+'</h2>';
+    html+='<input type="hidden" id="'+prefix+'EditRow" value="'+(record.rowNumber||0)+'">';
+    fields.forEach(f=>{
+      const val=record[f.key]||'';
+      html+='<label>'+esc(f.label)+(f.required?' *':'')+'</label>';
+      if(moduleKey==='PROGRAMS'&&f.key==='date') {
+        html+='<input type="date" data-edit-field="'+escAttr(f.key)+'" value="'+escAttr(normalizeHtmlDate(val))+'">';
+      } else if(f.key==='answer'||f.key==='details') {
+        html+='<textarea data-edit-field="'+escAttr(f.key)+'">'+esc(val)+'</textarea>';
+      } else {
+        html+='<input data-edit-field="'+escAttr(f.key)+'" value="'+escAttr(val)+'">';
+      }
+    });
+    html+='<div class="actions" style="margin-top:14px;"><button class="primary" onclick="saveModuleRecord(\''+moduleKey+'\')">Save</button><button class="secondary" onclick="closeModuleEditor(\''+moduleKey+'\')">Cancel</button></div>';
+    box.innerHTML=html;
+    box.scrollIntoView({behavior:'smooth',block:'start'});
+  } catch(e) {
+    box.innerHTML='<div class="notice">'+esc(e.message||e)+'</div>';
+  }
+}
+
+function normalizeHtmlDate(v) {
+  v=String(v||'').trim();
+  if(/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+  const d=new Date(v);
+  if(isNaN(d.getTime())) return '';
+  const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+  return y+'-'+m+'-'+day;
+}
+
+function closeModuleEditor(moduleKey) {
+  const box=document.getElementById(modulePrefix(moduleKey)+'Editor');
+  if(box) { box.style.display='none'; box.innerHTML=''; }
+}
+
+async function saveModuleRecord(moduleKey) {
+  const prefix=modulePrefix(moduleKey);
+  const box=document.getElementById(prefix+'Editor');
+  const payload={rowNumber:Number(document.getElementById(prefix+'EditRow').value||0)};
+  box.querySelectorAll('[data-edit-field]').forEach(el=>payload[el.dataset.editField]=el.value);
+  try {
+    await api('adminSaveModuleRecord',[sessionToken,moduleKey,payload]);
+    closeModuleEditor(moduleKey);
+    await loadModuleList(moduleKey,1);
+    message('Record सफलतापूर्वक save भयो ।');
+  } catch(e) { message(e.message||e); }
+}
+
+async function deleteModuleRecord(moduleKey,rowNumber) {
+  if(!confirm('यो record delete गर्ने हो ? Delete गर्नु अघि system backup राख्छ ।')) return;
+  try {
+    await api('adminDeleteModuleRecord',[sessionToken,moduleKey,rowNumber]);
+    await loadModuleList(moduleKey,1);
+    message('Record delete भयो । Backup सुरक्षित राखिएको छ ।');
+  } catch(e) { message(e.message||e); }
+}
+
+async function findMemberManage() {
+  const memberId=document.getElementById('memberManageId').value.trim();
+  if(!memberId) return message('Member ID लेख्नुहोस् ।');
+  const box=document.getElementById('memberManageResult');
+  box.innerHTML='<div class="card">Loading...</div>';
+  try {
+    const d=await api('adminFindMemberForManagement',[sessionToken,memberId]);
+    renderMemberManage(d);
+  } catch(e) {
+    box.innerHTML='<div class="card"><div class="notice">'+esc(e.message||e)+'</div></div>';
+  }
+}
+
+function renderMemberManage(d) {
+  const p=getModulePermission('MEMBERS');
+  let html='<div class="card"><h2>'+esc(d.name||'Member')+'</h2><div class="badge">'+esc(d.memberId)+' • '+esc(d.club||'')+'</div>';
+  html+='<div class="grid" style="margin-top:14px;">';
+  (d.fields||[]).forEach(f=>{
+    html+='<div><label>'+esc(f.label)+'</label>';
+    if(f.textarea) html+='<textarea data-member-field="'+escAttr(f.key)+'">'+esc(f.value)+'</textarea>';
+    else html+='<input data-member-field="'+escAttr(f.key)+'" value="'+escAttr(f.value)+'">';
+    html+='</div>';
+  });
+  html+='</div><div class="actions" style="margin-top:16px;">';
+  if(p&&p.canEdit) html+='<button class="primary" onclick="saveMemberManage(\''+js(d.memberId)+'\')">Save Member Update</button>';
+  if(p&&p.canReinstate) html+='<button class="secondary" onclick="reinstateMemberManage(\''+js(d.memberId)+'\')">Reinstate</button>';
+  html+='</div></div>';
+  document.getElementById('memberManageResult').innerHTML=html;
+}
+
+async function saveMemberManage(memberId) {
+  const changes={};
+  document.querySelectorAll('#memberManageResult [data-member-field]').forEach(el=>changes[el.dataset.memberField]=el.value);
+  try {
+    await api('adminUpdateMemberData',[sessionToken,memberId,changes]);
+    message('Member data update भयो । Audit र backup सुरक्षित गरिएको छ ।');
+  } catch(e) { message(e.message||e); }
+}
+
+async function reinstateMemberManage(memberId) {
+  try {
+    await api('adminReinstateMember',[sessionToken,memberId]);
+    message('Member Reinstate भयो ।');
+  } catch(e) { message(e.message||e); }
+}
+
 
 function esc(v) { return String(v==null?'':v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function escAttr(v) { return esc(v).replace(/'/g,'&#39;'); }
