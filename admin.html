@@ -128,6 +128,7 @@
     <button class="nav-btn module-nav" data-module="KNOWLEDGE" data-panel="knowledgemanage" onclick="showPanel('knowledgemanage',this)">💡 Knowledge Management</button>
     <button class="nav-btn module-nav" data-module="MEMBERS" data-panel="membermanage" onclick="showPanel('membermanage',this)">👤 Member Management</button>
     <button class="nav-btn super-only" data-panel="memberimport" onclick="showPanel('memberimport',this)">📥 Member Monthly Import</button>
+    <button class="nav-btn super-only" data-panel="memberrollback" onclick="showPanel('memberrollback',this)">↩ Member Import Rollback</button>
     <button class="nav-btn super-only" data-panel="profileprogress" onclick="showPanel('profileprogress',this)">📊 Profile Progress</button>
     <button class="nav-btn super-only" data-panel="admins" onclick="showPanel('admins',this)">👥 Admin Management</button>
     <button class="nav-btn super-only" data-panel="permissions" onclick="showPanel('permissions',this)">✅ Permissions</button>
@@ -259,6 +260,21 @@
         <button class="secondary" onclick="loadMemberImportHistory()">Refresh</button>
         <div id="memberImportHistory" style="margin-top:14px;"></div>
       </div>
+    </section>
+
+
+    <section id="panel-memberrollback" class="panel super-only">
+      <div class="card">
+        <h2>Member Import Rollback</h2>
+        <p style="color:#64748b;line-height:1.7;">
+          Monthly import पछि समस्या देखिएमा import अघि automatically बनेको full Members backup restore गर्न सकिन्छ ।
+          Restore गर्नु अघि हालको Members state को अर्को safety backup स्वतः बनाइन्छ ।
+        </p>
+        <button class="secondary" onclick="loadMemberImportBackups()">Refresh Backups</button>
+        <div id="memberImportBackups" style="margin-top:14px;"></div>
+      </div>
+
+      <div id="memberRollbackPreview" class="card" style="display:none;"></div>
     </section>
 
     <section id="panel-profileprogress" class="panel super-only">
@@ -494,7 +510,11 @@ function actionLabel(action) {
     superAdminGetMemberImportHistory:'Import history load हुँदैछ...',
     superAdminGetMemberProfileProgress:'Profile progress load हुँदैछ...',
     superAdminGetMemberProfileDetail:'Member detail load हुँदैछ...',
-    superAdminGetQuizBestAttempts:'Quiz best attempts load हुँदैछ...'
+    superAdminGetQuizBestAttempts:'Quiz best attempts load हुँदैछ...',
+    superAdminListMemberImportBackups:'Member backups load हुँदैछ...',
+    superAdminPreviewMemberImportRollback:'Rollback preview हुँदैछ...',
+    superAdminRollbackMemberImport:'Members restore हुँदैछ...',
+    superAdminValidateMemberImportSafety:'Import safety check हुँदैछ...'
   };
   return map[action] || 'प्रक्रिया भइरहेको छ...';
 }
@@ -663,6 +683,7 @@ function showPanel(name,btn) {
   if(name==='memberimport' && currentUser && currentUser.role==='SUPER_ADMIN') loadMemberImportHistory();
   if(name==='profileprogress' && currentUser && currentUser.role==='SUPER_ADMIN') loadProfileProgress();
   if(name==='quizbest' && currentUser && currentUser.role==='SUPER_ADMIN') loadQuizBestAttempts();
+  if(name==='memberrollback' && currentUser && currentUser.role==='SUPER_ADMIN') loadMemberImportBackups();
 }
 
 async function logout() {
@@ -1355,6 +1376,15 @@ function renderMemberImportPreview(r) {
     html+='<div class="notice" style="margin-top:14px;">'+warnings.map(w=>esc(w)).join('<br>')+'</div>';
   }
 
+  if(r.safety) {
+    const safetyWarnings=r.safety.warnings||[];
+    html+='<div style="margin-top:14px;padding:11px 12px;border-radius:12px;background:#ecfdf5;border:1px solid #a7f3d0;color:#047857;line-height:1.6;">';
+    html+='<b>Safety Check: '+(r.safety.safeToCommit?'PASS':'BLOCKED')+'</b><br>';
+    html+='Current Members: '+esc(r.safety.currentCount)+' • Import Members: '+esc(r.safety.importCount);
+    if(safetyWarnings.length) html+='<br><span style="color:#9a3412;">'+safetyWarnings.map(w=>esc(w)).join('<br>')+'</span>';
+    html+='</div>';
+  }
+
   const s=r.samples||{};
   html+='<div style="margin-top:14px;line-height:1.7;font-size:13px;">';
   if((s.new||[]).length) html+='<b>New Sample:</b> '+esc((s.new||[]).join(', '))+'<br>';
@@ -1643,6 +1673,105 @@ function downloadQuizBestAttemptsCsv() {
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+}
+
+
+
+let memberImportBackupsCache = [];
+
+async function loadMemberImportBackups() {
+  try {
+    const rows=await api('superAdminListMemberImportBackups',[sessionToken,25]);
+    memberImportBackupsCache=rows||[];
+
+    let html='<div style="overflow:auto;"><table><thead><tr>'+
+      '<th>Backup Time</th><th>Preview / Import ID</th><th>Members</th><th>Action</th>'+
+      '</tr></thead><tbody>';
+
+    memberImportBackupsCache.forEach(r=>{
+      html+='<tr>'+
+        '<td>'+esc(r.timestamp)+'</td>'+
+        '<td>'+esc(r.previewId||'')+'</td>'+
+        '<td>'+esc(r.rowCount)+'</td>'+
+        '<td><button class="secondary" onclick="previewMemberRollback('+Number(r.backupRow)+')">Preview Restore</button></td>'+
+      '</tr>';
+    });
+
+    html+='</tbody></table></div>';
+    if(!memberImportBackupsCache.length) html='<div class="notice">Member import backup भेटिएन ।</div>';
+
+    document.getElementById('memberImportBackups').innerHTML=html;
+  } catch(e) {
+    document.getElementById('memberImportBackups').innerHTML='<div class="notice">'+esc(e.message||e)+'</div>';
+  }
+}
+
+async function previewMemberRollback(backupRow) {
+  try {
+    const r=await api('superAdminPreviewMemberImportRollback',[sessionToken,backupRow]);
+    const box=document.getElementById('memberRollbackPreview');
+    box.style.display='block';
+
+    let html='<h2>Rollback Preview</h2>';
+    html+='<div class="grid">'+
+      '<div class="stat">Current Members<b>'+esc(r.currentMemberCount)+'</b></div>'+
+      '<div class="stat">Backup Members<b>'+esc(r.backupMemberCount)+'</b></div>'+
+      '<div class="stat">Current Only<b>'+esc(r.currentOnlyCount)+'</b></div>'+
+      '<div class="stat">Backup Only<b>'+esc(r.backupOnlyCount)+'</b></div>'+
+      '</div>';
+
+    html+='<div class="notice" style="margin-top:14px;">'+
+      'Backup Time: '+esc(r.timestamp)+'<br>'+
+      'Original Preview ID: '+esc(r.previewId||'')+'<br><br>'+
+      'Restore गर्दा हालको Members sheet overwrite हुनेछ, तर restore अघि हालको state को अर्को safety backup स्वतः बनाइन्छ ।'+
+      '</div>';
+
+    if((r.currentOnlySample||[]).length) {
+      html+='<div style="margin-top:12px;"><b>Current-only Sample:</b> '+esc(r.currentOnlySample.join(', '))+'</div>';
+    }
+    if((r.backupOnlySample||[]).length) {
+      html+='<div style="margin-top:8px;"><b>Backup-only Sample:</b> '+esc(r.backupOnlySample.join(', '))+'</div>';
+    }
+
+    html+='<div style="margin-top:16px;">'+
+      '<label>Final Confirmation Text</label>'+
+      '<input id="rollbackConfirmText" placeholder="RESTORE MEMBERS" autocomplete="off">'+
+      '<div class="actions" style="margin-top:12px;">'+
+        '<button class="danger" onclick="confirmMemberRollback('+Number(r.backupRow)+')">Restore This Backup</button>'+
+        '<button class="secondary" onclick="document.getElementById(\'memberRollbackPreview\').style.display=\'none\'">Cancel</button>'+
+      '</div>'+
+      '</div>';
+
+    box.innerHTML=html;
+    box.scrollIntoView({behavior:'smooth',block:'start'});
+  } catch(e) {
+    message(e.message||e);
+  }
+}
+
+function confirmMemberRollback(backupRow) {
+  const text=document.getElementById('rollbackConfirmText').value.trim();
+  if(text!=='RESTORE MEMBERS') {
+    return message('Final confirmation मा ठ्याक्कै RESTORE MEMBERS लेख्नुहोस् ।');
+  }
+
+  universalConfirm(
+    'Final Member Restore Confirmation',
+    'यो अत्यन्त संवेदनशील action हो ।\n\nSelected backup बाट Members sheet restore गर्ने हो ?\nRestore अघि current Members data को अर्को safety backup स्वतः बनाइन्छ ।',
+    async function(){
+      try {
+        const r=await api('superAdminRollbackMemberImport',[sessionToken,backupRow,text]);
+        document.getElementById('memberRollbackPreview').style.display='none';
+        await loadMemberImportBackups();
+        message(
+          'Members restore सफल भयो ।\n\n'+
+          'Restored Members: '+r.restoredMemberCount+
+          '\nRollback ID: '+r.rollbackId+
+          '\nBackup Time: '+r.restoredFrom
+        );
+      } catch(e) { message(e.message||e); }
+    }
+  );
 }
 
 
