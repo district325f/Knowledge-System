@@ -289,6 +289,71 @@
       }
     }
 
+
+    .import-progress-overlay {
+      display:none;
+      position:fixed;
+      inset:0;
+      z-index:10080;
+      background:rgba(15,23,42,.60);
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+    }
+    .import-progress-card {
+      width:min(94vw,620px);
+      background:#fff;
+      border-radius:22px;
+      padding:24px;
+      box-shadow:0 24px 70px rgba(15,23,42,.28);
+    }
+    .import-progress-title {
+      font-size:23px;
+      font-weight:900;
+      color:#0f4c81;
+      margin-bottom:8px;
+    }
+    .import-progress-stage {
+      color:#475569;
+      line-height:1.6;
+      margin-bottom:14px;
+    }
+    .import-progress-track {
+      width:100%;
+      height:18px;
+      background:#e2e8f0;
+      border-radius:999px;
+      overflow:hidden;
+    }
+    .import-progress-bar {
+      width:0%;
+      height:100%;
+      background:linear-gradient(90deg,#2563eb,#0f4c81);
+      border-radius:999px;
+      transition:width .25s ease;
+    }
+    .import-progress-percent {
+      font-size:34px;
+      font-weight:900;
+      color:#0f4c81;
+      margin-top:12px;
+    }
+    .import-progress-count {
+      color:#64748b;
+      margin-top:5px;
+      font-size:14px;
+    }
+    .import-progress-warning {
+      margin-top:16px;
+      padding:11px 12px;
+      background:#fff7ed;
+      border:1px solid #fed7aa;
+      color:#9a3412;
+      border-radius:12px;
+      line-height:1.6;
+      font-size:13px;
+    }
+
 </style>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
@@ -458,7 +523,10 @@
 
       <div class="card">
         <h2>Import History</h2>
-        <button class="secondary" onclick="loadMemberImportHistory()">Refresh</button>
+        <div class="actions">
+          <button class="secondary" onclick="loadMemberImportHistory()">Refresh</button>
+          <button class="secondary" onclick="resumeCurrentMemberImport()">Resume Interrupted Import</button>
+        </div>
         <div id="memberImportHistory" style="margin-top:14px;"></div>
       </div>
     </section>
@@ -836,6 +904,27 @@
 </div>
 
 
+
+<div id="memberImportProgressOverlay" class="import-progress-overlay">
+  <div class="import-progress-card">
+    <div class="import-progress-title">Member Import Processing</div>
+    <div id="memberImportProgressStage" class="import-progress-stage">Import तयारी हुँदैछ...</div>
+    <div class="import-progress-track">
+      <div id="memberImportProgressBar" class="import-progress-bar"></div>
+    </div>
+    <div id="memberImportProgressPercent" class="import-progress-percent">0%</div>
+    <div id="memberImportProgressCount" class="import-progress-count"></div>
+    <div class="import-progress-warning">
+      Import पूरा नभएसम्म यो page refresh, बन्द वा अर्को Confirm & Import click नगर्नुहोस् ।
+      बीचमा network समस्या आए पनि live Members sheet अन्तिम चरणसम्म replace हुँदैन ।
+    </div>
+    <div id="memberImportProgressActions" class="actions" style="margin-top:14px;display:none;">
+      <button class="secondary" onclick="resumeCurrentMemberImport()">Resume</button>
+      <button class="secondary" onclick="closeMemberImportProgress()">Close</button>
+    </div>
+  </div>
+</div>
+
 <div id="globalWorking" class="global-working">
   <span class="spinner"></span>
   <span id="globalWorkingText">प्रक्रिया भइरहेको छ...</span>
@@ -986,7 +1075,11 @@ function actionLabel(action) {
     superAdminChangeUsername:'Username परिवर्तन हुँदैछ...',
     superAdminListTrustedDevices:'Trusted devices load हुँदैछन्...',
     superAdminRevokeTrustedDevice:'Trusted device revoke हुँदैछ...',
-    superAdminRunPerformanceSafetyCheck:'Performance & safety check हुँदैछ...'
+    superAdminRunPerformanceSafetyCheck:'Performance & safety check हुँदैछ...',
+    superAdminStartMemberImportJob:'Import तयारी हुँदैछ...',
+    superAdminProcessMemberImportJob:'Import progress update हुँदैछ...',
+    superAdminGetMemberImportJobStatus:'Import status जाँच हुँदैछ...',
+    superAdminCancelMemberImportJob:'Import cancel हुँदैछ...'
   };
   return map[action] || 'प्रक्रिया भइरहेको छ...';
 }
@@ -1188,6 +1281,14 @@ async function openApp() {
 
   lastActivityAt=Date.now();
   startInactivityWatch();
+
+  const resumableJob=sessionStorage.getItem('lks_member_import_job');
+  if(resumableJob && currentUser && currentUser.role==='SUPER_ADMIN') {
+    currentMemberImportJobId=resumableJob;
+    setTimeout(function(){
+      message('अघिल्लो Member Import job resume गर्न सकिन्छ । Member Monthly Import मा गएर Resume गर्नुहोस् ।');
+    },500);
+  }
 }
 
 function renderModules() {
@@ -1955,36 +2056,143 @@ function cancelMemberImportPreview() {
   if(input) input.value='';
 }
 
+let currentMemberImportJobId = '';
+let memberImportLoopRunning = false;
+
 function confirmCommitMemberImport() {
   if(!currentMemberImportPreviewId) return message('पहिला Import Preview गर्नुहोस् ।');
 
   universalConfirm(
     'Member Import Final Confirmation',
     'File: '+currentMemberImportFileName+
-    '\n\nConfirm गरेपछि active Members sheet नयाँ Lion Portal data अनुसार rebuild हुनेछ ।'+
-    '\nLion Join Date पछिका पुराना profile records Member ID अनुसार सुरक्षित merge हुनेछन् ।'+
-    '\nImport अघि full backup पनि सुरक्षित हुनेछ ।',
+    '\n\nConfirm गरेपछि system पहिले सुरक्षित backup बनाउँछ । त्यसपछि member data सानो-सानो chunk मा process हुन्छ ।'+
+    '\nLion Join Date पछिका protected/custom records Member ID अनुसार सुरक्षित रहन्छन् ।'+
+    '\nLive Members sheet अन्तिम चरण पूरा भएपछि मात्र replace हुन्छ ।',
     async function(){
       try {
-        const result=await api('superAdminCommitMemberImport',[sessionToken,currentMemberImportPreviewId]);
-        currentMemberImportPreviewId='';
-        document.getElementById('memberImportPreview').innerHTML='';
-        const input=document.getElementById('memberImportFile');
-        if(input) input.value='';
-
-        await loadMemberImportHistory();
-        message(
-          'Member Import सफल भयो ।\n\n'+
-          'Total: '+result.totalImported+
-          '\nNew: '+result.counts.new+
-          '\nUpdated: '+result.counts.updated+
-          '\nDropped: '+result.counts.dropped+
-          '\nReinstated: '+result.counts.reinstated+
-          '\nUnchanged: '+result.counts.unchanged
-        );
-      } catch(e) { message(e.message||e); }
+        showMemberImportProgress();
+        const job=await api('superAdminStartMemberImportJob',[sessionToken,currentMemberImportPreviewId]);
+        currentMemberImportJobId=job.jobId||'';
+        sessionStorage.setItem('lks_member_import_job',currentMemberImportJobId);
+        renderMemberImportProgress(job);
+        await continueMemberImportLoop();
+      } catch(e) {
+        handleMemberImportProgressError(e);
+      }
     }
   );
+}
+
+function showMemberImportProgress() {
+  const o=document.getElementById('memberImportProgressOverlay');
+  if(o) o.style.display='flex';
+  const a=document.getElementById('memberImportProgressActions');
+  if(a) a.style.display='none';
+}
+
+function closeMemberImportProgress() {
+  const o=document.getElementById('memberImportProgressOverlay');
+  if(o) o.style.display='none';
+}
+
+function renderMemberImportProgress(job) {
+  const pct=Math.max(0,Math.min(100,Number(job.overallPercent||0)));
+  document.getElementById('memberImportProgressBar').style.width=pct+'%';
+  document.getElementById('memberImportProgressPercent').textContent=pct+'%';
+  document.getElementById('memberImportProgressStage').textContent=
+    (job.stageLabel||'Import processing') + (job.message ? ' — '+job.message : '');
+
+  let count='';
+  if(job.totalRows) {
+    count='Member Processing: '+Number(job.processedRows||0)+' / '+Number(job.totalRows||0);
+  }
+  document.getElementById('memberImportProgressCount').textContent=count;
+}
+
+async function continueMemberImportLoop() {
+  if(memberImportLoopRunning || !currentMemberImportJobId) return;
+  memberImportLoopRunning=true;
+
+  try {
+    while(currentMemberImportJobId) {
+      const job=await api('superAdminProcessMemberImportJob',[sessionToken,currentMemberImportJobId]);
+      renderMemberImportProgress(job);
+
+      if(job.completed) {
+        sessionStorage.removeItem('lks_member_import_job');
+        currentMemberImportJobId='';
+        currentMemberImportPreviewId='';
+
+        const input=document.getElementById('memberImportFile');
+        if(input) input.value='';
+        document.getElementById('memberImportPreview').innerHTML='';
+
+        const a=document.getElementById('memberImportProgressActions');
+        if(a) a.style.display='flex';
+
+        await loadMemberImportHistory();
+
+        message(
+          'Member Import सफल भयो ।\n\n'+
+          'Total: '+job.totalRows+
+          '\nNew: '+Number((job.counts||{}).new||0)+
+          '\nUpdated: '+Number((job.counts||{}).updated||0)+
+          '\nDropped: '+Number((job.counts||{}).dropped||0)+
+          '\nReinstated: '+Number((job.counts||{}).reinstated||0)+
+          '\nUnchanged: '+Number((job.counts||{}).unchanged||0)
+        );
+        break;
+      }
+
+      if(job.failed || job.cancelled) {
+        throw new Error(job.message || 'Import process रोकिएको छ ।');
+      }
+
+      await new Promise(resolve=>setTimeout(resolve,180));
+    }
+  } catch(e) {
+    handleMemberImportProgressError(e);
+  } finally {
+    memberImportLoopRunning=false;
+  }
+}
+
+function handleMemberImportProgressError(e) {
+  const text=e && e.message ? e.message : String(e||'Unknown error');
+  const stage=document.getElementById('memberImportProgressStage');
+  if(stage) stage.textContent='Connection/process interrupted: '+text;
+
+  const actions=document.getElementById('memberImportProgressActions');
+  if(actions) actions.style.display='flex';
+
+  message(
+    'Import process बीचमा रोकिएको/connection interrupted भएको छ ।\n'+
+    'Live Members sheet अन्तिम finalize चरण नपुगेसम्म replace हुँदैन ।\n'+
+    'Progress panel को Resume थिचेर सुरक्षित रूपमा जारी गर्न सकिन्छ ।'
+  );
+}
+
+async function resumeCurrentMemberImport() {
+  let jobId=currentMemberImportJobId || sessionStorage.getItem('lks_member_import_job') || '';
+  if(!jobId) return message('Resume गर्न active import job भेटिएन ।');
+
+  currentMemberImportJobId=jobId;
+  showMemberImportProgress();
+
+  try {
+    const job=await api('superAdminGetMemberImportJobStatus',[sessionToken,jobId]);
+    renderMemberImportProgress(job);
+
+    if(job.completed) {
+      sessionStorage.removeItem('lks_member_import_job');
+      currentMemberImportJobId='';
+      return message('यो import पहिले नै complete भइसकेको छ ।');
+    }
+
+    await continueMemberImportLoop();
+  } catch(e) {
+    handleMemberImportProgressError(e);
+  }
 }
 
 async function loadMemberImportHistory() {
