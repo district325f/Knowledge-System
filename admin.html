@@ -336,6 +336,7 @@
     <button class="nav-btn super-only" data-panel="dataaudit" onclick="showPanel('dataaudit',this)">🔎 Data Change Audit</button>
     <button class="nav-btn super-only" data-panel="securitycenter" onclick="showPanel('securitycenter',this)">🛡 Security Center</button>
     <button class="nav-btn super-only" data-panel="finalcheck" onclick="showPanel('finalcheck',this)">✅ Final System Check</button>
+    <button class="nav-btn super-only" data-panel="performancecheck" onclick="showPanel('performancecheck',this)">⚡ Performance & Safety</button>
     <button class="nav-btn super-only" data-panel="securityevents" onclick="showPanel('securityevents',this)">🔐 Security Events</button>
     <button class="nav-btn super-only" data-panel="audit" onclick="showPanel('audit',this)">📜 System Audit Log</button>
     <button class="nav-btn" data-panel="password" onclick="showPanel('password',this)">🔐 Change Password</button>
@@ -765,6 +766,34 @@
       </div>
     </section>
 
+
+    <section id="panel-performancecheck" class="panel super-only">
+      <div class="card">
+        <h2>Performance & Data Safety Final Check</h2>
+        <p style="color:#64748b;line-height:1.7;">
+          यो read-only check ले ठूलो data size, duplicate Member ID, active sessions,
+          import backup, extended member store, archive store र trusted-device foundation जाँच गर्छ ।
+        </p>
+        <div class="actions">
+          <button class="primary" onclick="runPerformanceSafetyCheck()">Run Check</button>
+          <button class="secondary" onclick="printPerformanceSafetyCheck()">Print</button>
+        </div>
+        <div id="performanceSafetySummary" class="grid" style="margin-top:16px;"></div>
+        <div id="performanceSafetyTable" style="margin-top:16px;"></div>
+      </div>
+
+      <div class="card">
+        <h2>Step 15 Protection Active</h2>
+        <div style="line-height:1.8;color:#475569;">
+          • OTP resend cooldown<br>
+          • Monthly import single-process lock<br>
+          • Rollback single-process lock<br>
+          • Import अघि existing duplicate Member ID block<br>
+          • Existing backup / extended-data / archive protection verification
+        </div>
+      </div>
+    </section>
+
     <section id="panel-securityevents" class="panel super-only">
       <div class="card">
         <h2>Security Events</h2>
@@ -956,7 +985,8 @@ function actionLabel(action) {
     verifySuperAdminDeviceOtp:'New device OTP verify हुँदैछ...',
     superAdminChangeUsername:'Username परिवर्तन हुँदैछ...',
     superAdminListTrustedDevices:'Trusted devices load हुँदैछन्...',
-    superAdminRevokeTrustedDevice:'Trusted device revoke हुँदैछ...'
+    superAdminRevokeTrustedDevice:'Trusted device revoke हुँदैछ...',
+    superAdminRunPerformanceSafetyCheck:'Performance & safety check हुँदैछ...'
   };
   return map[action] || 'प्रक्रिया भइरहेको छ...';
 }
@@ -1199,6 +1229,7 @@ function showPanel(name,btn) {
   if(name==='reports' && currentUser && currentUser.role==='SUPER_ADMIN') loadReportingCenter();
   if(name==='securitycenter' && currentUser && currentUser.role==='SUPER_ADMIN') loadSecurityCenter();
   if(name==='finalcheck' && currentUser && currentUser.role==='SUPER_ADMIN') runFinalDiagnostics();
+  if(name==='performancecheck' && currentUser && currentUser.role==='SUPER_ADMIN') runPerformanceSafetyCheck();
 }
 
 async function logout() {
@@ -2986,6 +3017,59 @@ function changeSuperAdminUsername() {
       }
     );
   });
+}
+
+
+
+let performanceSafetyCache = null;
+
+async function runPerformanceSafetyCheck() {
+  try {
+    const r=await api('superAdminRunPerformanceSafetyCheck',[sessionToken]);
+    performanceSafetyCache=r;
+
+    document.getElementById('performanceSafetySummary').innerHTML=
+      '<div class="stat">Overall<b>'+esc(r.overallStatus)+'</b></div>'+
+      '<div class="stat">Pass<b>'+esc(r.passCount)+'</b></div>'+
+      '<div class="stat">Fail<b>'+esc(r.failCount)+'</b></div>'+
+      '<div class="stat">Info<b>'+esc(r.infoCount)+'</b></div>';
+
+    let html='<div style="overflow:auto;"><table id="performanceSafetyPrintable"><thead><tr>'+
+      '<th>Check</th><th>Status</th><th>Detail</th>'+
+      '</tr></thead><tbody>';
+
+    (r.results||[]).forEach(x=>{
+      html+='<tr>'+
+        '<td>'+esc(x.name)+'</td>'+
+        '<td><b>'+esc(x.status)+'</b></td>'+
+        '<td>'+esc(x.detail)+'</td>'+
+        '</tr>';
+    });
+
+    html+='</tbody></table></div>';
+    document.getElementById('performanceSafetyTable').innerHTML=html;
+  } catch(e) {
+    document.getElementById('performanceSafetyTable').innerHTML='<div class="notice">'+esc(e.message||e)+'</div>';
+  }
+}
+
+function printPerformanceSafetyCheck() {
+  if(!performanceSafetyCache) return message('पहिला Run Check गर्नुहोस् ।');
+  const table=document.getElementById('performanceSafetyPrintable');
+  if(!table) return message('Check result भेटिएन ।');
+
+  const w=window.open('','_blank');
+  w.document.write(
+    '<html><head><title>Performance & Data Safety Check</title>'+
+    '<style>body{font-family:Arial;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #999;padding:7px;font-size:12px}th{background:#eee}</style>'+
+    '</head><body><h2>Performance & Data Safety Check</h2>'+
+    '<p>Overall: <b>'+esc(performanceSafetyCache.overallStatus)+'</b></p>'+
+    table.outerHTML+
+    '</body></html>'
+  );
+  w.document.close();
+  w.focus();
+  w.print();
 }
 
 
