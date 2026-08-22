@@ -1134,6 +1134,8 @@ function reviewDeleteRequest(requestId,decision) {
   );
 }
 
+let memberRequestRowsCache = [];
+
 async function loadMemberRequests() {
   try {
     const status=document.getElementById('memberReqStatus').value;
@@ -1141,9 +1143,13 @@ async function loadMemberRequests() {
     if(currentUser.role==='SUPER_ADMIN') rows=await api('superAdminListMemberUpdateRequests',[sessionToken,status]);
     else rows=await api('adminListMemberUpdateRequests',[sessionToken,status]);
 
+    memberRequestRowsCache = rows || [];
+
     let html='<div style="overflow:auto;"><table><thead><tr><th>Request</th><th>Member ID</th><th>Type</th><th>Status</th><th>Created</th><th>Action</th></tr></thead><tbody>';
     rows.forEach(r=>{
       html+='<tr><td>'+esc(r.requestId)+'</td><td>'+esc(r.memberId)+'</td><td>'+esc(r.requestType)+'</td><td>'+esc(r.status)+'</td><td>'+esc(r.createdAt)+'</td><td class="actions">';
+
+      html+='<button class="secondary" onclick="viewMemberRequestChanges(\''+js(r.requestId)+'\')">View Changes</button>';
 
       if(currentUser.role==='SUPER_ADMIN' && String(r.status).toUpperCase()==='PENDING_SUPER') {
         html+='<button class="primary" onclick="reviewMemberRequest(\''+js(r.requestId)+'\',\'APPROVE\',true)">Approve</button>';
@@ -1514,6 +1520,38 @@ function downloadProfileProgressCsv() {
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+}
+
+
+
+function viewMemberRequestChanges(requestId) {
+  const r=(memberRequestRowsCache||[]).find(x=>String(x.requestId)===String(requestId));
+  if(!r) return message('Request detail भेटिएन ।');
+
+  let payload={};
+  try { payload=JSON.parse(String(r.payloadJson||'{}')); } catch(e) {}
+
+  let html='<div style="text-align:left;">';
+  html+='<b>Request ID:</b> '+esc(r.requestId)+'<br>';
+  html+='<b>Member ID:</b> '+esc(r.memberId)+'<br>';
+  html+='<b>Requested By:</b> '+esc(r.requestedBy)+'<br>';
+  html+='<b>Type:</b> '+esc(r.requestType)+'<br>';
+  html+='<b>Status:</b> '+esc(r.status)+'<br><br>';
+  html+='<b>Requested Changes:</b><br>';
+
+  const keys=Object.keys(payload||{});
+  if(!keys.length) html+='No field changes found.';
+  else {
+    html+='<div style="margin-top:8px;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;">';
+    keys.forEach(k=>{
+      html+='<div style="padding:9px 10px;border-bottom:1px solid #e5e7eb;"><b>'+esc(k)+'</b><br><span style="color:#475569;white-space:pre-wrap;">'+esc(payload[k])+'</span></div>';
+    });
+    html+='</div>';
+  }
+
+  html+='</div>';
+  document.getElementById('msgText').innerHTML=html;
+  document.getElementById('msg').style.display='flex';
 }
 
 
