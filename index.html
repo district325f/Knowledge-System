@@ -1,0 +1,4022 @@
+<!DOCTYPE html>
+<html lang="ne">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lions Knowledge System</title>
+
+  <!-- ============================================================
+       GITHUB COMPATIBILITY LAYER (ADDITIVE ONLY)
+       Existing UI/functions below are unchanged.
+       Replace the URL once with your deployed Apps Script /exec URL.
+  ============================================================= -->
+  <script>
+    const APPS_SCRIPT_WEB_APP_URL = "PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE";
+
+    (function installAppsScriptBridge(){
+      // When this file is opened inside Apps Script, keep the native google.script.run.
+      if (window.google && window.google.script && window.google.script.run) return;
+
+      async function callAppsScript_(action, args) {
+        if (!APPS_SCRIPT_WEB_APP_URL || APPS_SCRIPT_WEB_APP_URL.indexOf('PASTE_YOUR_') === 0) {
+          throw new Error('Apps Script Web App URL राखिएको छैन । index.html को APPS_SCRIPT_WEB_APP_URL मा /exec URL राख्नुहोस् ।');
+        }
+
+        const response = await fetch(APPS_SCRIPT_WEB_APP_URL, {
+          method: 'POST',
+          body: JSON.stringify({ action: action, args: Array.isArray(args) ? args : [] }),
+          redirect: 'follow',
+          cache: 'no-store'
+        });
+
+        const text = await response.text();
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch (e) {
+          throw new Error('Backend response JSON मा आएन । Deployment access र Web App URL जाँच गर्नुहोस् ।');
+        }
+
+        if (!data || data.ok !== true) {
+          throw new Error(data && data.error ? data.error : 'Backend request असफल भयो ।');
+        }
+        return data.result;
+      }
+
+      function createRunner_() {
+        let successHandler = function(){};
+        let failureHandler = function(err){ console.error(err); };
+        let proxy;
+
+        proxy = new Proxy({}, {
+          get: function(target, prop) {
+            if (prop === 'withSuccessHandler') {
+              return function(fn) {
+                successHandler = typeof fn === 'function' ? fn : function(){};
+                return proxy;
+              };
+            }
+            if (prop === 'withFailureHandler') {
+              return function(fn) {
+                failureHandler = typeof fn === 'function' ? fn : function(err){ console.error(err); };
+                return proxy;
+              };
+            }
+            return function() {
+              const args = Array.prototype.slice.call(arguments);
+              callAppsScript_(String(prop), args)
+                .then(function(result){ successHandler(result); })
+                .catch(function(err){ failureHandler(err); });
+              return proxy;
+            };
+          }
+        });
+        return proxy;
+      }
+
+      window.google = window.google || {};
+      window.google.script = window.google.script || {};
+      Object.defineProperty(window.google.script, 'run', {
+        configurable: true,
+        get: createRunner_
+      });
+    })();
+  </script>
+
+
+  <style>
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      overflow-x: hidden;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #eef3fb, #f8fbff);
+      color: #1f2937;
+      -webkit-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+    }
+
+    img {
+      -webkit-user-drag: none;
+      user-drag: none;
+    }
+
+    input, textarea, select {
+      -webkit-user-select: auto;
+      -ms-user-select: auto;
+      user-select: auto;
+    }
+
+    .container {
+      max-width: 1150px;
+      margin: 0 auto;
+      padding: 20px 14px 30px;
+      width: 100%;
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(135deg, #1436b8 0%, #1a5ae8 52%, #4920d8 100%);
+      color: white;
+      border-radius: 28px;
+      padding: 26px 24px 24px;
+      box-shadow: 0 14px 32px rgba(0,0,0,0.16);
+      margin-bottom: 18px;
+      text-align: center;
+    }
+
+    .hero::before {
+      content: "";
+      position: absolute;
+      top: -110px;
+      right: -100px;
+      width: 260px;
+      height: 260px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.08);
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      left: -80px;
+      bottom: -90px;
+      width: 220px;
+      height: 220px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.05);
+    }
+
+    .logo {
+      position: absolute;
+      top: 16px;
+      left: 18px;
+      width: 110px;
+      height: 110px;
+      border-radius: 50%;
+      object-fit: cover;
+      background: #fff;
+      padding: 7px;
+      box-shadow: 0 10px 22px rgba(0,0,0,0.16);
+      z-index: 2;
+    }
+
+    .hero-title {
+      margin: 0;
+      font-size: 38px;
+      font-weight: 800;
+      line-height: 1.2;
+      letter-spacing: 0.3px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .hero-subtitle-wrap {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-top: 10px;
+      position: relative;
+      z-index: 2;
+      flex-wrap: wrap;
+    }
+
+    .gold-arrow {
+      display: inline-flex;
+      align-items: center;
+      width: 52px;
+      height: 10px;
+      position: relative;
+    }
+
+    .gold-arrow::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 10px;
+      top: 50%;
+      height: 3px;
+      transform: translateY(-50%);
+      background: linear-gradient(90deg, #f7d66b, #ffd84d);
+      border-radius: 999px;
+      box-shadow: 0 0 8px rgba(255,216,77,0.35);
+    }
+
+    .gold-arrow::after {
+      content: "";
+      position: absolute;
+      right: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      border-top: 6px solid transparent;
+      border-bottom: 6px solid transparent;
+      border-left: 10px solid #ffd84d;
+      filter: drop-shadow(0 0 4px rgba(255,216,77,0.35));
+    }
+
+    .gold-arrow.left {
+      transform: scaleX(-1);
+    }
+
+    .hero-subtitle {
+      margin: 0;
+      font-size: 19px;
+      font-weight: 700;
+      color: #fff8d7;
+      letter-spacing: 0.3px;
+      text-align: center;
+    }
+
+    .hero-system-title {
+      margin-top: 12px;
+      font-size: 31px;
+      font-weight: 800;
+      color: #ffd84d;
+      letter-spacing: 0.4px;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.18);
+      position: relative;
+      z-index: 2;
+    }
+
+    .top-nav {
+      background: #ffffff;
+      border-radius: 999px;
+      box-shadow: 0 8px 20px rgba(15,76,129,0.12);
+      padding: 8px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 18px;
+      border: 1px solid #dde7f3;
+    }
+
+    .top-nav-btn {
+      border: none;
+      background: transparent;
+      color: #1f2937;
+      padding: 12px 18px;
+      border-radius: 999px;
+      font-size: 17px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .top-nav-btn.active,
+    .top-nav-btn:hover {
+      background: linear-gradient(135deg, #2448d8, #133ca8);
+      color: white;
+    }
+
+    .main-box {
+      background: white;
+      border-radius: 24px;
+      padding: 22px 18px;
+      box-shadow: 0 8px 24px rgba(15,76,129,0.08);
+      margin-bottom: 18px;
+    }
+
+    .section-title {
+      margin: 0 0 8px;
+      color: #0f4c81;
+      font-size: 28px;
+      font-weight: 800;
+      text-align: center;
+    }
+
+    .section-desc {
+      margin: 0 0 18px;
+      color: #5b6472;
+      font-size: 16px;
+      text-align: center;
+      line-height: 1.7;
+    }
+
+    .home-hero-card {
+      background: linear-gradient(135deg, #eef4ff 0%, #fafcff 100%);
+      border: 1px solid #dbe7f6;
+      border-radius: 28px;
+      padding: 24px 22px;
+      display: grid;
+      grid-template-columns: 1.08fr 1fr;
+      gap: 24px;
+      align-items: center;
+      box-shadow: 0 12px 28px rgba(36,72,216,0.08);
+      margin-bottom: 24px;
+    }
+
+    .home-hero-visual {
+      min-height: 330px;
+      border-radius: 24px;
+      background:
+        radial-gradient(circle at 22% 18%, rgba(255,215,0,0.22), transparent 20%),
+        radial-gradient(circle at 78% 26%, rgba(255,255,255,0.82), transparent 18%),
+        linear-gradient(135deg, #dce9ff, #eef5ff);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 22px;
+    }
+
+    .home-hero-visual::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 15% 85%, rgba(26,90,232,0.08), transparent 22%),
+        radial-gradient(circle at 85% 88%, rgba(73,32,216,0.10), transparent 18%);
+    }
+
+    .visual-card {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      max-width: 400px;
+      background: linear-gradient(180deg, #1739ba 0%, #2356e2 50%, #5225d8 100%);
+      border-radius: 28px;
+      padding: 22px 16px 18px;
+      box-shadow: 0 18px 34px rgba(21,44,90,0.22);
+      text-align: center;
+      color: #ffffff;
+    }
+
+    .visual-logo {
+      width: 110px;
+      height: auto;
+      object-fit: contain;
+      background: transparent;
+      border-radius: 0;
+      padding: 0;
+      margin: 0 auto 12px;
+      box-shadow: none;
+      display: block;
+    }
+
+    .weekly-title {
+      font-size: 20px;
+      font-weight: 800;
+      line-height: 1.35;
+      margin-bottom: 12px;
+      color: #ffffff;
+    }
+
+    .weekly-item {
+      background: rgba(255,255,255,0.13);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 14px;
+      padding: 9px 10px;
+      margin-bottom: 8px;
+      font-size: 14px;
+      line-height: 1.45;
+      font-weight: 700;
+      color: #fff6d5;
+    }
+
+    .weekly-empty {
+      background: rgba(255,255,255,0.12);
+      border-radius: 14px;
+      padding: 10px;
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff6d5;
+    }
+
+    .home-hero-content {
+      text-align: center;
+    }
+
+    .directory-cta-wrap {
+      margin-top: 26px;
+      text-align: center;
+    }
+
+    .directory-cta-title {
+      font-size: 22px;
+      font-weight: 800;
+      color: #0c2461;
+      margin-bottom: 12px;
+      line-height: 1.3;
+    }
+
+    .directory-cta-btn {
+      display: inline-block;
+      min-width: 260px;
+      padding: 14px 28px;
+      border: none;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #1a73e8, #0f4c81);
+      color: #ffffff;
+      font-size: 18px;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 8px 18px rgba(26,115,232,0.22);
+      animation: directoryBlink 1.2s infinite;
+    }
+
+    @keyframes directoryBlink {
+      0% {
+        transform: scale(1);
+        box-shadow: 0 8px 18px rgba(26,115,232,0.22);
+        opacity: 1;
+      }
+      50% {
+        transform: scale(1.04);
+        box-shadow: 0 0 0 8px rgba(26,115,232,0.12), 0 12px 24px rgba(26,115,232,0.32);
+        opacity: 0.92;
+      }
+      100% {
+        transform: scale(1);
+        box-shadow: 0 8px 18px rgba(26,115,232,0.22);
+        opacity: 1;
+      }
+    }
+
+    .welcome-top {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 6px;
+      flex-wrap: wrap;
+    }
+
+    .welcome-label {
+      font-size: 20px;
+      font-weight: 700;
+      color: #c58b00;
+      letter-spacing: 0.3px;
+    }
+
+    .welcome-main {
+      margin: 0;
+      font-size: 31px;
+      line-height: 1.3;
+      color: #0c2461;
+      font-weight: 800;
+    }
+
+    .welcome-nep {
+      margin: 8px 0 18px;
+      font-size: 20px;
+      font-weight: 700;
+      color: #111827;
+    }
+
+    .bullet-list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      max-width: 480px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .bullet-list li {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+      font-size: 18px;
+      font-weight: 700;
+      color: #1f2937;
+      line-height: 1.5;
+      justify-content: flex-start;
+      text-align: left;
+    }
+
+    .bullet-icon {
+      width: 42px;
+      height: 42px;
+      min-width: 42px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #2448d8, #133ca8);
+      color: white;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      box-shadow: 0 8px 16px rgba(36,72,216,0.20);
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 18px;
+    }
+
+    .feature-card {
+      border-radius: 24px;
+      padding: 18px 16px 20px;
+      box-shadow: 0 8px 20px rgba(15,76,129,0.10);
+      border: 1px solid rgba(219,231,246,0.95);
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 340px;
+    }
+
+    .feature-card.knowledge {
+      background: linear-gradient(180deg, #fff3f1, #fffaf9);
+    }
+
+    .feature-card.program {
+      background: linear-gradient(180deg, #edf8ff, #f9fdff);
+    }
+
+    .feature-card.member {
+      background: linear-gradient(180deg, #fff7ec, #fffdfa);
+    }
+
+    .feature-card.quiz {
+      background: linear-gradient(180deg, #f6f0ff, #fcfbff);
+    }
+
+    .feature-icon {
+      font-size: 86px;
+      line-height: 1;
+      margin: 8px 0 14px;
+    }
+
+    .feature-title {
+      margin: 0 0 10px;
+      font-size: 24px;
+      font-weight: 800;
+      color: #0c2461;
+      line-height: 1.2;
+    }
+
+    .feature-desc {
+      margin: 0;
+      font-size: 16px;
+      line-height: 1.7;
+      font-weight: 700;
+      color: #374151;
+    }
+
+    .feature-btn {
+      width: 100%;
+      margin-top: 18px;
+      padding: 14px 16px;
+      font-size: 18px;
+      font-weight: 800;
+      border: none;
+      border-radius: 16px;
+      color: white;
+      cursor: pointer;
+      box-shadow: 0 8px 18px rgba(0,0,0,0.12);
+    }
+
+    .feature-card.knowledge .feature-btn {
+      background: linear-gradient(135deg, #d52b2b, #b71c1c);
+    }
+
+    .feature-card.program .feature-btn {
+      background: linear-gradient(135deg, #117ea1, #0f5f7a);
+    }
+
+    .feature-card.member .feature-btn {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+    }
+
+    .feature-card.quiz .feature-btn {
+      background: linear-gradient(135deg, #2856ff, #1d3fd9);
+    }
+
+    .slogan-bar {
+      margin-top: 22px;
+      background: linear-gradient(135deg, #1739ba, #3f1bd8);
+      color: #fff3c8;
+      border-radius: 22px;
+      padding: 16px 18px;
+      text-align: center;
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: 0.3px;
+      box-shadow: 0 12px 24px rgba(36,72,216,0.14);
+    }
+
+    .field-label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 700;
+      color: #1f2937;
+      font-size: 17px;
+    }
+
+    .select-box,
+    .quiz-input {
+      width: 100%;
+      padding: 14px 14px;
+      font-size: 17px;
+      border-radius: 14px;
+      border: 1px solid #cfd8e3;
+      background: #fff;
+      outline: none;
+      min-height: 54px;
+    }
+
+    .select-box:focus,
+    .quiz-input:focus {
+      border-color: #1a73e8;
+      box-shadow: 0 0 0 3px rgba(26,115,232,0.12);
+    }
+
+    .btn,
+    .calendar-nav-btn,
+    .member-action-btn {
+      width: 100%;
+      margin-top: 14px;
+      padding: 14px 16px;
+      font-size: 18px;
+      font-weight: 700;
+      border: none;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #1a73e8, #0f4c81);
+      color: white;
+      cursor: pointer;
+      box-shadow: 0 6px 14px rgba(26,115,232,0.22);
+      min-height: 54px;
+      line-height: 1.3;
+    }
+
+    .home-btn {
+      width: auto;
+      padding: 10px 20px;
+      font-size: 16px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #64748b, #334155);
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+      display: inline-block;
+      margin-bottom: 14px;
+    }
+
+    .answer-box {
+      margin-top: 20px;
+      background: #f8fafc;
+      padding: 18px 16px;
+      border-radius: 16px;
+      border: 1px solid #e2e8f0;
+    }
+
+    .answer-title {
+      margin: 0 0 10px;
+      color: #0f4c81;
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .answer-text {
+      font-size: 17px;
+      line-height: 1.5;
+      color: #374151;
+      white-space: pre-wrap;
+      word-break: keep-all;
+      overflow-wrap: normal;
+      text-align: left;
+      min-height: 50px;
+    }
+
+    .answer-text .list-line {
+      display: block;
+      padding-left: 2.2em;
+      text-indent: -2.2em;
+      margin-bottom: 0.6em;
+    }
+
+    .loading-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      color: #0f4c81;
+      font-weight: 700;
+    }
+
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 3px solid #cfe0fb;
+      border-top: 3px solid #1a73e8;
+      border-radius: 50%;
+      display: inline-block;
+      animation: spin 0.8s linear infinite;
+    }
+
+    .loading-text {
+      font-size: 16px;
+    }
+
+    .quiz-start-loading {
+      margin-top: 18px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      color: #0f4c81;
+      font-weight: 700;
+      text-align: center;
+      min-height: 120px;
+    }
+
+    .quiz-start-loading .spinner {
+      width: 30px;
+      height: 30px;
+      border-width: 4px;
+    }
+
+    .quiz-start-loading-text {
+      font-size: 18px;
+      line-height: 1.5;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .quiz-box { margin-top: 8px; }
+
+    .quiz-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+
+    .timer-pill,
+    .score-pill {
+      background: #eef4ff;
+      color: #0f4c81;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 15px;
+    }
+
+    .quiz-question {
+      font-size: 21px;
+      font-weight: 700;
+      color: #0f4c81;
+      line-height: 1.6;
+      margin-bottom: 14px;
+      text-align: center;
+    }
+
+    .quiz-progress {
+      color: #6b7280;
+      font-size: 14px;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+
+    .quiz-options-wrap {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-top: 10px;
+    }
+
+    .quiz-option-btn {
+      width: 100%;
+      display: flex;
+      align-items: stretch;
+      gap: 0;
+      padding: 0;
+      border: none;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #1a73e8, #0f4c81);
+      color: white;
+      cursor: pointer;
+      box-shadow: 0 6px 14px rgba(26,115,232,0.22);
+      min-height: 70px;
+      overflow: hidden;
+      text-align: left;
+    }
+
+    .option-letter {
+      width: 58px;
+      min-width: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      font-weight: 700;
+      color: #ffffff;
+      background: rgba(255,255,255,0.14);
+      border-right: 1px solid rgba(255,255,255,0.16);
+    }
+
+    .option-text {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      padding: 10px 14px;
+      font-size: 19px;
+      font-weight: 700;
+      line-height: 1.45;
+      color: #ffffff;
+      word-break: break-word;
+    }
+
+    .quiz-feedback {
+      margin-top: 16px;
+      padding: 14px;
+      border-radius: 12px;
+      font-size: 18px;
+      font-weight: 700;
+      text-align: center;
+      line-height: 1.7;
+    }
+
+    .correct-feedback {
+      background: #ecfdf5;
+      color: #047857;
+      border: 1px solid #a7f3d0;
+    }
+
+    .wrong-feedback {
+      background: #fef2f2;
+      color: #b91c1c;
+      border: 1px solid #fecaca;
+    }
+
+    .correct-answer-line {
+      display: block;
+      margin-top: 8px;
+      color: #047857;
+      font-weight: 700;
+    }
+
+    .quiz-loading-next {
+      margin-top: 14px;
+      text-align: center;
+      font-size: 15px;
+      font-weight: 600;
+      color: #0f4c81;
+    }
+
+    .certificate-card {
+      margin-top: 18px;
+      border: 2px solid #1a73e8;
+      border-radius: 16px;
+      padding: 24px 18px;
+      text-align: center;
+      background: linear-gradient(180deg, #ffffff, #f6fbff);
+    }
+
+    .certificate-card h3 {
+      margin: 0 0 10px;
+      color: #0f4c81;
+      font-size: 26px;
+    }
+
+    .certificate-name {
+      font-size: 28px;
+      font-weight: 700;
+      color: #1a73e8;
+      margin: 12px 0;
+    }
+
+    .leaderboard-wrap {
+      margin-top: 20px;
+      display: none;
+    }
+
+    .leaderboard-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #0f4c81;
+      margin-bottom: 10px;
+    }
+
+    .leaderboard-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .leaderboard-table th,
+    .leaderboard-table td {
+      border: 1px solid #e5e7eb;
+      padding: 10px 8px;
+      text-align: center;
+      font-size: 14px;
+    }
+
+    .leaderboard-table th {
+      background: #eef4ff;
+      color: #0f4c81;
+    }
+
+    .program-search-help {
+      margin: 0 0 10px;
+      color: #6b7280;
+      font-size: 13px;
+      line-height: 1.6;
+      text-align: center;
+    }
+
+    .program-results-title {
+      font-size: 18px;
+      color: #0f4c81;
+      margin: 18px 0 12px;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .calendar-wrap {
+      margin-top: 12px;
+      background: #f8fbff;
+      border: 1px solid #dbe7f6;
+      border-radius: 18px;
+      padding: 14px 12px 16px;
+    }
+
+    .calendar-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .calendar-title {
+      font-size: 20px;
+      font-weight: 800;
+      color: #0f4c81;
+      text-align: center;
+      flex: 1;
+    }
+
+    .calendar-nav-btn {
+      width: auto;
+      min-width: 54px;
+      margin-top: 0;
+      padding: 10px 14px;
+      min-height: auto;
+      font-size: 18px;
+      border-radius: 12px;
+    }
+
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 8px;
+    }
+
+    .day-name {
+      text-align: center;
+      font-size: 13px;
+      font-weight: 700;
+      color: #64748b;
+      padding: 6px 2px;
+    }
+
+    .calendar-day {
+      position: relative;
+      min-height: 54px;
+      border-radius: 14px;
+      border: 1px solid #dbe7f6;
+      background: #ffffff;
+      display: flex;
+      align-items: flex-start;
+      justify-content: flex-end;
+      padding: 8px 8px 6px;
+      font-size: 16px;
+      font-weight: 700;
+      color: #1f2937;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    }
+
+    .calendar-day.has-program {
+      background: linear-gradient(135deg, #e6f9ef, #d4f5e3);
+      border: 1px solid #2ecc71;
+      font-weight: 700;
+    }
+
+    .calendar-day.has-program:hover {
+      background: linear-gradient(135deg, #d4f5e3, #c2efd8);
+      transform: scale(1.05);
+    }
+
+    .calendar-day.selected {
+      background: linear-gradient(135deg, #4facfe, #00c6ff);
+      color: #fff;
+      border: none;
+    }
+
+    .calendar-day:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(15,76,129,0.10);
+    }
+
+    .calendar-day.empty-day {
+      background: #f8fafc;
+      color: transparent;
+      cursor: default;
+    }
+
+    .calendar-day.selected-day {
+      border-color: #1a73e8;
+      background: #eaf3ff;
+      box-shadow: 0 0 0 3px rgba(26,115,232,0.12);
+    }
+
+    .calendar-day.today-day {
+      outline: 2px dashed rgba(26,115,232,0.35);
+      outline-offset: -4px;
+    }
+
+    .program-selected-info {
+      margin-top: 14px;
+      background: #eef6ff;
+      border: 1px solid #cfe0fb;
+      border-radius: 14px;
+      padding: 12px;
+      text-align: center;
+      font-weight: 700;
+      color: #0f4c81;
+    }
+
+    .event-card {
+      background: #ffffff;
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 12px 28px rgba(21,44,90,0.10);
+      margin-top: 16px;
+      margin-bottom: 16px;
+      border: 1px solid #edf1f7;
+      width: 100%;
+    }
+
+    .event-date-panel {
+      background: linear-gradient(180deg, #1f7cf0 0%, #0c4f8c 100%);
+      color: white;
+      text-align: center;
+      padding: 16px 10px;
+    }
+
+    .event-date-label {
+      font-size: 15px;
+      font-weight: 700;
+      opacity: 0.95;
+      margin-bottom: 6px;
+    }
+
+    .event-date-value {
+      font-size: 20px;
+      font-weight: 700;
+      line-height: 1.2;
+      word-break: break-word;
+    }
+
+    .event-body {
+      padding: 16px 14px 18px;
+    }
+
+    .event-title {
+      margin: 0 0 10px;
+      font-size: 22px;
+      font-weight: 800;
+      color: #111827;
+      line-height: 1.3;
+      word-break: break-word;
+    }
+
+    .info-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .info-pill {
+      width: 100%;
+      background: #edf2ff;
+      color: #1e4f87;
+      border-radius: 14px;
+      padding: 10px 12px;
+      font-size: 18px;
+      font-weight: 700;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+
+    .details-box {
+      background: #f8fafc;
+      border: 1px solid #dfe5ec;
+      border-radius: 14px;
+      padding: 12px;
+      font-size: 17px;
+      line-height: 1.6;
+      color: #374151;
+      min-height: 58px;
+      word-break: break-word;
+    }
+
+    .empty {
+      background: #fff1f2;
+      color: #be123c;
+      border: 1px solid #fecdd3;
+      padding: 12px;
+      border-radius: 12px;
+      line-height: 1.5;
+      font-size: 14px;
+      text-align: center;
+      margin-top: 16px;
+    }
+
+    .member-card {
+      background: #ffffff;
+      border-radius: 18px;
+      box-shadow: 0 12px 28px rgba(21,44,90,0.10);
+      border: 1px solid #edf1f7;
+      margin-top: 16px;
+      overflow: hidden;
+    }
+
+    .member-hero {
+      padding: 20px 16px;
+      text-align: center;
+      background: linear-gradient(180deg, #ffffff, #f8fbff);
+      border-bottom: 1px solid #edf1f7;
+    }
+
+    .member-photo {
+      width: 130px;
+      height: 130px;
+      border-radius: 50%;
+      object-fit: cover;
+      padding: 5px;
+      background: linear-gradient(135deg, #3b82f6, #60a5fa);
+      box-shadow: 0 8px 22px rgba(37, 99, 235, 0.35);
+    }
+
+    .member-name {
+      font-size: 24px;
+      font-weight: 800;
+      color: #0f4c81;
+      margin: 14px 0 6px;
+      line-height: 1.3;
+    }
+
+    .member-club {
+      color: #5b6472;
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .member-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      padding: 16px;
+    }
+
+    .member-box {
+      background: #f8fbff;
+      border: 1px solid #dbe7f6;
+      border-radius: 14px;
+      padding: 12px;
+      font-size: 14px;
+      line-height: 1.5;
+      color: #374151;
+      word-break: break-word;
+    }
+
+    .member-box-value {
+      line-height: 1.6;
+      word-break: break-word;
+    }
+
+    .member-box strong {
+      display: block;
+      color: #0f4c81;
+      margin-bottom: 4px;
+    }
+
+    .member-actions {
+      display: flex;
+      gap: 10px;
+      padding: 0 16px 16px;
+      flex-wrap: wrap;
+    }
+
+    .member-action-btn {
+      flex: 1;
+      min-width: 140px;
+      margin-top: 0;
+    }
+
+    .footer {
+      text-align: center;
+      color: #6b7280;
+      font-size: 13px;
+      padding: 14px 0 4px;
+      line-height: 1.8;
+    }
+
+    #topBtn {
+      position: fixed;
+      right: 16px;
+      bottom: 20px;
+      z-index: 99999;
+      display: none;
+      padding: 12px 16px;
+      border: none;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #1a73e8, #0f4c81);
+      color: #fff;
+      font-size: 15px;
+      font-weight: 700;
+      box-shadow: 0 6px 14px rgba(26,115,232,0.25);
+      cursor: pointer;
+    }
+
+    #homeScreen,
+    #knowledgeSection,
+    #quizSection,
+    #programSection,
+    #memberSection,
+    #portalSection {
+      display: none;
+    }
+
+    .portal-answer-box {
+      margin-top: 20px;
+      background: #f8fafc;
+      padding: 18px 16px;
+      border-radius: 16px;
+      border: 1px solid #e2e8f0;
+    }
+
+    .portal-answer-title {
+      margin: 0 0 10px;
+      color: #0f4c81;
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .portal-answer-text {
+      font-size: 17px;
+      line-height: 1.7;
+      color: #374151;
+      min-height: 50px;
+      white-space: pre-wrap;
+    }
+
+
+    .birthday-block {
+      margin-top: 16px;
+      border: 1px solid #dbe7f6;
+      border-radius: 18px;
+      background: linear-gradient(135deg, #fff8ec, #fffdf7);
+      box-shadow: 0 8px 20px rgba(245,158,11,0.10);
+      padding: 14px 12px;
+      text-align: center;
+      cursor: pointer;
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .birthday-block:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 24px rgba(245,158,11,0.16);
+    }
+
+    .birthday-icon {
+      font-size: 30px;
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+
+    .birthday-title {
+      font-size: 18px;
+      font-weight: 800;
+      color: #b45309;
+      margin-bottom: 4px;
+    }
+
+    .birthday-subtitle {
+      font-size: 14px;
+      font-weight: 700;
+      color: #7c5a18;
+    }
+
+    .birthday-list-wrap {
+      margin-top: 16px;
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-radius: 16px;
+      padding: 14px;
+      box-shadow: 0 8px 18px rgba(15,76,129,0.08);
+    }
+
+    .birthday-list-title {
+      font-size: 20px;
+      font-weight: 800;
+      color: #0f4c81;
+      text-align: center;
+      margin-bottom: 12px;
+    }
+
+    .birthday-item {
+      padding: 12px 14px;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      margin-bottom: 10px;
+      background: linear-gradient(135deg, #f8fbff, #ffffff);
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1.6;
+      color: #1f2937;
+      cursor: pointer;
+      transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+    }
+
+    .birthday-item:hover {
+      transform: translateY(-1px);
+      border-color: #c9ddff;
+      box-shadow: 0 8px 18px rgba(37, 99, 235, 0.10);
+    }
+
+    .birthday-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .birthday-card-shell {
+      margin-top: 16px;
+      border-radius: 26px;
+      overflow: hidden;
+      border: 3px solid #d9b35c;
+      box-shadow: 0 16px 34px rgba(15,76,129,0.18);
+      background:
+        radial-gradient(circle at top left, rgba(255,255,255,0.45), transparent 18%),
+        radial-gradient(circle at top right, rgba(255,255,255,0.25), transparent 16%),
+        linear-gradient(180deg, #113a7b 0%, #1d3f8e 18%, #fdfcf7 18%, #f7f3ea 68%, #123a7c 100%);
+      color: #1f2937;
+      position: relative;
+    }
+
+    .birthday-card-shell::before,
+    .birthday-card-shell::after {
+      content: "";
+      position: absolute;
+      width: 110px;
+      height: 110px;
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(255,216,112,0.90) 0%, rgba(255,176,53,0.55) 55%, rgba(255,176,53,0.12) 100%);
+      pointer-events: none;
+    }
+
+    .birthday-card-shell::before {
+      top: 74px;
+      left: -34px;
+    }
+
+    .birthday-card-shell::after {
+      bottom: 18px;
+      right: -26px;
+    }
+
+    .birthday-card-top {
+      position: relative;
+      padding: 16px 18px 18px;
+      text-align: center;
+      color: #fff5d7;
+      background:
+        radial-gradient(circle at 18% 24%, rgba(255,255,255,0.24), transparent 12%),
+        radial-gradient(circle at 84% 18%, rgba(255,255,255,0.18), transparent 12%),
+        linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
+      border-bottom: 2px solid rgba(217,179,92,0.75);
+    }
+
+    .birthday-card-confetti {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        radial-gradient(circle at 12% 30%, rgba(255,223,128,0.92) 0 3px, transparent 4px),
+        radial-gradient(circle at 85% 18%, rgba(255,99,132,0.90) 0 3px, transparent 4px),
+        radial-gradient(circle at 74% 78%, rgba(96,165,250,0.90) 0 3px, transparent 4px),
+        radial-gradient(circle at 28% 68%, rgba(255,255,255,0.85) 0 2px, transparent 3px),
+        linear-gradient(60deg, transparent 0 44%, rgba(255,220,140,0.9) 44% 48%, transparent 48%),
+        linear-gradient(120deg, transparent 0 46%, rgba(255,255,255,0.72) 46% 49%, transparent 49%);
+      opacity: 0.9;
+    }
+
+    .birthday-card-logo {
+      position: relative;
+      z-index: 1;
+      width: 92px;
+      height: 92px;
+      object-fit: contain;
+      margin: 0 auto 8px;
+      display: block;
+      filter: drop-shadow(0 4px 10px rgba(0,0,0,0.20));
+    }
+
+    .birthday-card-heading {
+      position: relative;
+      z-index: 1;
+      font-size: 24px;
+      line-height: 1.12;
+      font-weight: 900;
+      color: #ffe08a;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.18);
+      margin: 0;
+    }
+
+    .birthday-card-stage {
+      position: relative;
+      padding: 18px 16px 16px;
+      background:
+        radial-gradient(circle at left center, rgba(23,61,127,0.30), transparent 28%),
+        radial-gradient(circle at right center, rgba(23,61,127,0.30), transparent 28%);
+    }
+
+    .birthday-card-photo-ring {
+      width: min(78vw, 315px);
+      height: min(78vw, 315px);
+      max-width: 315px;
+      max-height: 315px;
+      margin: 0 auto 16px;
+      padding: 8px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #f4d27e, #fff5ca, #c9962d);
+      box-shadow: 0 10px 24px rgba(20, 40, 90, 0.14);
+    }
+
+    .birthday-card-photo {
+      width: 100%;
+      height: 100%;
+      border-radius: 999px;
+      object-fit: cover;
+      background: #f3f4f6;
+      display: block;
+      border: 5px solid rgba(255,255,255,0.78);
+    }
+
+    .birthday-card-no-photo {
+      width: 100%;
+      height: 100%;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      background: linear-gradient(135deg, #eef6ff, #ffffff);
+      color: #4b6385;
+      font-size: 22px;
+      font-weight: 800;
+      border: 5px solid rgba(255,255,255,0.78);
+    }
+
+    .birthday-card-logo-inline {
+      width: 78px;
+      height: 78px;
+      object-fit: contain;
+      display: block;
+      margin: 0 auto 8px;
+    }
+
+    .birthday-card-name {
+      font-size: clamp(28px, 6vw, 42px);
+      font-weight: 900;
+      color: #1f376d;
+      text-align: center;
+      line-height: 1.12;
+      margin: 0 0 8px;
+      word-break: break-word;
+    }
+
+    .birthday-card-position,
+    .birthday-card-club {
+      font-size: clamp(18px, 3.6vw, 26px);
+      line-height: 1.35;
+      text-align: center;
+      color: #23395d;
+      font-weight: 700;
+      margin: 0 0 4px;
+      word-break: break-word;
+    }
+
+    .birthday-card-divider {
+      height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(217,179,92,0.95), transparent);
+      margin: 16px auto;
+      width: 86%;
+    }
+
+    .birthday-card-contact {
+      width: min(92%, 520px);
+      margin: 0 auto 6px;
+    }
+
+    .birthday-card-contact-line {
+      font-size: clamp(18px, 3.6vw, 28px);
+      line-height: 1.45;
+      color: #23395d;
+      font-weight: 800;
+      margin: 0 0 8px;
+      word-break: break-word;
+      text-align: left;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .birthday-card-contact-line .emoji {
+      min-width: 28px;
+      display: inline-block;
+      line-height: 1.2;
+    }
+
+    .birthday-card-btn-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      width: min(92%, 520px);
+      margin: 18px auto 0;
+    }
+
+    .birthday-card-btn {
+      border: none;
+      border-radius: 14px;
+      padding: 12px 10px;
+      font-size: 16px;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 8px 18px rgba(15,76,129,0.12);
+    }
+
+    .birthday-card-btn.back {
+      background: linear-gradient(135deg, #163d7f, #355ab1);
+      color: #fff;
+    }
+
+    .birthday-card-btn.print {
+      background: linear-gradient(135deg, #ffffff, #f3f4f6);
+      color: #1f376d;
+      border: 1px solid #d8dee8;
+    }
+
+    .birthday-card-btn.whatsapp {
+      background: linear-gradient(135deg, #2a9f48, #1e7b38);
+      color: #fff;
+    }
+
+    .birthday-back-btn {
+      width: 100%;
+      margin-top: 12px;
+      padding: 12px 16px;
+      border: none;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #64748b, #334155);
+      color: #fff;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+
+
+    /* =========================
+       PHOTO UPDATE MODAL + OTP
+    ========================= */
+    .photo-mini-action {
+      margin-top: 12px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      border: none;
+      border-radius: 999px;
+      padding: 10px 18px;
+      background: linear-gradient(135deg, #1a73e8, #0f4c81);
+      color: #fff;
+      font-size: 15px;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 8px 18px rgba(26,115,232,0.20);
+    }
+
+    .photo-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 999998;
+      background: rgba(15, 23, 42, 0.58);
+      padding: 18px;
+      overflow-y: auto;
+    }
+
+    .photo-modal-card {
+      width: min(96%, 920px);
+      margin: 28px auto;
+      background: #ffffff;
+      border-radius: 26px;
+      padding: 24px;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.22);
+      position: relative;
+      border: 1px solid #e5edf8;
+    }
+
+    .photo-modal-close {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      border: none;
+      background: #ef4444;
+      color: #fff;
+      font-weight: 800;
+      border-radius: 10px;
+      padding: 8px 12px;
+      cursor: pointer;
+    }
+
+    .photo-modal-title {
+      text-align: center;
+      color: #0f4c81;
+      font-size: 26px;
+      font-weight: 900;
+      margin: 4px 0 22px;
+    }
+
+    .photo-option-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 22px;
+      align-items: stretch;
+    }
+
+    .photo-option-card {
+      border-radius: 24px;
+      padding: 28px 22px 24px;
+      text-align: center;
+      border: 2px solid #dbeafe;
+      background: linear-gradient(180deg, #ffffff, #f8fbff);
+      min-height: 360px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .photo-option-card.qr-card {
+      border-color: #fed7aa;
+      background: linear-gradient(180deg, #fffaf2, #ffffff);
+    }
+
+    .photo-option-icon {
+      width: 96px;
+      height: 96px;
+      margin: -6px auto 18px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 48px;
+      background: linear-gradient(135deg, #2563eb, #38bdf8);
+      color: #fff;
+      box-shadow: 0 12px 28px rgba(37,99,235,0.22);
+    }
+
+    .qr-card .photo-option-icon {
+      background: linear-gradient(135deg, #f59e0b, #fb6b00);
+      box-shadow: 0 12px 28px rgba(245,158,11,0.24);
+    }
+
+    .photo-option-title {
+      font-size: 26px;
+      color: #1d4ed8;
+      font-weight: 900;
+      margin-bottom: 12px;
+      line-height: 1.25;
+    }
+
+    .qr-card .photo-option-title {
+      color: #ea580c;
+    }
+
+    .photo-option-desc {
+      color: #374151;
+      font-size: 17px;
+      line-height: 1.7;
+      font-weight: 700;
+      margin-bottom: 18px;
+    }
+
+    .photo-rules {
+      text-align: left;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 12px 14px;
+      font-size: 14px;
+      color: #374151;
+      line-height: 1.7;
+      margin: 12px 0;
+    }
+
+    .photo-input,
+    .otp-input {
+      width: 100%;
+      padding: 13px 14px;
+      border: 1px solid #cfd8e3;
+      border-radius: 13px;
+      margin-top: 10px;
+      font-size: 16px;
+      outline: none;
+    }
+
+    .photo-input:focus,
+    .otp-input:focus {
+      border-color: #1a73e8;
+      box-shadow: 0 0 0 3px rgba(26,115,232,0.12);
+    }
+
+    .otp-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+      margin-top: 8px;
+    }
+
+    .small-action-btn {
+      border: none;
+      border-radius: 12px;
+      padding: 12px 14px;
+      background: linear-gradient(135deg, #334155, #0f172a);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 800;
+      cursor: pointer;
+      min-height: 44px;
+    }
+
+    .photo-primary-btn {
+      width: 100%;
+      border: none;
+      border-radius: 16px;
+      padding: 15px 16px;
+      margin-top: 12px;
+      color: #fff;
+      background: linear-gradient(135deg, #2563eb, #0ea5e9);
+      font-size: 18px;
+      font-weight: 900;
+      cursor: pointer;
+      box-shadow: 0 10px 22px rgba(37,99,235,0.20);
+    }
+
+    .qr-card .photo-primary-btn {
+      background: linear-gradient(135deg, #fb923c, #f97316);
+      box-shadow: 0 10px 22px rgba(249,115,22,0.22);
+    }
+
+    .photo-preview {
+      text-align: center;
+      margin-top: 12px;
+      min-height: 0;
+    }
+
+    .photo-preview img {
+      width: 130px;
+      height: 130px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 4px solid #dbeafe;
+      box-shadow: 0 10px 20px rgba(37,99,235,0.14);
+    }
+
+    .qr-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 999999;
+      background: rgba(15, 23, 42, 0.58);
+      padding: 18px;
+      overflow-y: auto;
+    }
+
+    .qr-modal-card {
+      width: min(94%, 520px);
+      margin: 42px auto;
+      background: #fff;
+      padding: 24px;
+      border-radius: 26px;
+      text-align: center;
+      position: relative;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.22);
+    }
+
+    .qr-title-bar {
+      background: #ffc43b;
+      color: #172554;
+      border-radius: 18px;
+      padding: 15px;
+      font-size: 24px;
+      font-weight: 900;
+      margin-bottom: 24px;
+    }
+
+    .qr-inner-box {
+      border: 3px dashed #c7c7c7;
+      border-radius: 22px;
+      padding: 22px 12px;
+      background: #fff;
+    }
+
+    .mobile-upload-card {
+      width: min(94%, 560px);
+      margin: 18px auto;
+      background: #ffffff;
+      border-radius: 26px;
+      padding: 22px;
+      border: 1px solid #dbe7f6;
+      box-shadow: 0 16px 34px rgba(15,76,129,0.12);
+      text-align: center;
+    }
+
+    .mobile-upload-title {
+      font-size: 26px;
+      font-weight: 900;
+      color: #0f4c81;
+      margin-bottom: 10px;
+      line-height: 1.3;
+    }
+
+    .mobile-upload-desc {
+      font-size: 16px;
+      color: #475569;
+      font-weight: 700;
+      line-height: 1.7;
+      margin-bottom: 14px;
+    }
+
+    @media (max-width: 760px) {
+      .photo-option-grid {
+        grid-template-columns: 1fr;
+      }
+      .photo-modal-card {
+        padding: 18px 14px;
+        margin: 18px auto;
+      }
+      .photo-option-card {
+        min-height: auto;
+        padding: 22px 16px;
+      }
+      .photo-option-title {
+        font-size: 22px;
+      }
+    }
+
+    @media print {
+      .no-print, .photo-mini-action, .photo-modal, .qr-modal {
+        display: none !important;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .birthday-card-top {
+        padding: 14px 14px 16px;
+      }
+
+      .birthday-card-logo {
+        width: 84px;
+        height: 84px;
+      }
+
+      .birthday-card-heading {
+        font-size: 22px;
+      }
+
+      .birthday-card-stage {
+        padding: 16px 12px 14px;
+      }
+
+      .birthday-card-photo-ring {
+        width: min(74vw, 270px);
+        height: min(74vw, 270px);
+      }
+
+      .birthday-card-logo-inline {
+        width: 68px;
+        height: 68px;
+      }
+
+      .birthday-card-btn-row {
+        grid-template-columns: 1fr;
+      }
+
+      .birthday-card-btn {
+        width: 100%;
+      }
+    }
+
+    @media (max-width: 980px) {
+      .home-hero-card {
+        grid-template-columns: 1fr;
+      }
+
+      .feature-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .logo {
+        width: 88px;
+        height: 88px;
+      }
+
+      .hero-title {
+        font-size: 31px;
+      }
+
+      .hero-system-title {
+        font-size: 27px;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .info-pill,
+      .details-box {
+        font-size: 22px !important;
+        padding: 14px !important;
+        line-height: 1.6;
+      }
+
+      .info-pill *,
+      .details-box * {
+        font-size: 22px !important;
+      }
+
+      .event-title {
+        font-size: 24px;
+      }
+
+      .container {
+        padding: 16px 10px 26px;
+      }
+
+      .logo {
+        width: 64px;
+        height: 64px;
+        top: 12px;
+        left: 12px;
+      }
+
+      .hero {
+        padding: 18px 14px 18px;
+      }
+
+      .directory-cta-wrap {
+        margin-top: 20px;
+        padding: 0 10px;
+      }
+
+      .directory-cta-title {
+        font-size: 18px;
+        margin-bottom: 10px;
+      }
+
+      .directory-cta-btn {
+        width: 100%;
+        min-width: 0;
+        font-size: 16px;
+        padding: 14px;
+        border-radius: 12px;
+      }
+
+      .hero-title {
+        font-size: 24px;
+        padding: 0 26px;
+      }
+
+      .hero-subtitle {
+        font-size: 15px;
+      }
+
+      .gold-arrow {
+        width: 34px;
+      }
+
+      .hero-system-title {
+        font-size: 21px;
+      }
+
+      .top-nav {
+        border-radius: 20px;
+      }
+
+      .top-nav-btn {
+        width: 100%;
+      }
+
+      .home-hero-visual {
+        min-height: 250px;
+      }
+
+      .visual-logo {
+        width: 90px;
+        height: auto;
+      }
+
+      .weekly-title {
+        font-size: 17px;
+      }
+
+      .welcome-label {
+        font-size: 17px;
+      }
+
+      .welcome-main {
+        font-size: 24px;
+      }
+
+      .welcome-nep {
+        font-size: 18px;
+      }
+
+      .bullet-list li {
+        font-size: 16px;
+      }
+
+      .feature-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .slogan-bar {
+        font-size: 20px;
+      }
+
+      .select-box,
+      .quiz-input {
+        font-size: 18px;
+        min-height: 56px;
+        padding: 14px 12px;
+        border-radius: 12px;
+      }
+
+      .btn {
+        font-size: 18px;
+        min-height: 56px;
+        padding: 14px 16px;
+        border-radius: 12px;
+      }
+
+      .answer-title {
+        font-size: 22px;
+        line-height: 1.3;
+      }
+
+      .answer-text {
+        font-size: 17px;
+        line-height: 1.6;
+      }
+
+      .quiz-question {
+        font-size: 18px;
+        text-align: center;
+        line-height: 1.45;
+      }
+
+      .quiz-progress {
+        font-size: 15px;
+      }
+
+      .quiz-options-wrap {
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+
+      .quiz-option-btn {
+        min-height: 66px;
+        border-radius: 12px;
+      }
+
+      .option-letter {
+        width: 44px;
+        min-width: 44px;
+        font-size: 18px;
+      }
+
+      .option-text {
+        font-size: 16px;
+        padding: 8px 10px;
+        line-height: 1.35;
+      }
+
+      .quiz-start-loading .spinner {
+        width: 28px;
+        height: 28px;
+      }
+
+      .quiz-start-loading-text {
+        font-size: 17px;
+      }
+
+      .leaderboard-table th,
+      .leaderboard-table td {
+        font-size: 13px;
+        padding: 8px 6px;
+      }
+
+      .calendar-title {
+        font-size: 17px;
+      }
+
+      .calendar-day {
+        min-height: 44px;
+        font-size: 17px;
+        border-radius: 10px;
+        padding: 6px 6px 4px;
+      }
+
+      .member-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .member-actions {
+        flex-direction: column;
+      }
+
+      #topBtn {
+        right: 12px;
+        bottom: 16px;
+        padding: 10px 14px;
+        font-size: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="hero">
+      <img src="https://www.dropbox.com/scl/fi/pb17qybnb3uzkxgh8rq12/Lions-Logo.png?rlkey=hq73znfpt5qrurjr178uhfl97&st=ugo2mlyb&raw=1" class="logo" id="heroLogo">
+      <h1 class="hero-title" id="heroOrgName">Lions International</h1>
+
+      <div class="hero-subtitle-wrap">
+        <span class="gold-arrow left"></span>
+        <p class="hero-subtitle" id="heroOrgTagline">MD 325, District 325 F, Nepal</p>
+        <span class="gold-arrow"></span>
+      </div>
+
+      <div class="hero-system-title">Lions Knowledge System</div>
+    </div>
+
+    <div class="top-nav">
+      <button class="top-nav-btn active" onclick="goHome()">🏠 Home</button>
+      <button class="top-nav-btn" onclick="showQuizSection()">❓ Quiz Contest</button>
+      <button class="top-nav-btn" onclick="showProgramSection()">🗓️ Upcoming Program</button>
+      <button class="top-nav-btn" onclick="showMemberSection()">👤 Member Search</button>
+      <button class="top-nav-btn" onclick="showKnowledgeSection()">💡 Knowledge Hub</button>
+      <button class="top-nav-btn" onclick="showPortalSection()">🦁 Lion Portal</button>
+    </div>
+
+    <div id="homeScreen">
+      <div class="home-hero-card">
+        <div class="home-hero-visual">
+          <div class="visual-card">
+            <img class="visual-logo" src="https://www.dropbox.com/scl/fi/nks35u0kcpon39vo8rilh/District-325-F-Logo.png?rlkey=apyibeeyibfsxd4gr2l3puu4u&st=1iwej0gi&raw=1" alt="Lions Logo">
+            <div class="weekly-title">डिष्ट्रिक्टको यो हप्ताको मुख्य कार्यक्रमहरू </div>
+            <div id="weeklyPrograms">
+              <div class="weekly-empty">लोड हुँदैछ...</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="home-hero-content">
+          <div class="welcome-top">
+            <span class="gold-arrow left"></span>
+            <span class="welcome-label">Welcome to</span>
+            <span class="gold-arrow"></span>
+          </div>
+
+          <h2 class="welcome-main">Lions Knowledge System!</h2>
+          <p class="welcome-nep">तपाईंलाई स्वागत छ !</p>
+
+          <ul class="bullet-list">
+            <li><span class="bullet-icon">🔎</span> सदस्य जानकारी खोज्नुहोस् ।</li>
+            <li><span class="bullet-icon">⭐</span> ज्ञान प्रतियोगितामा भाग लिनुहोस् ।</li>
+            <li><span class="bullet-icon">📅</span> आगामी कार्यक्रम हेर्नुहोस् ।</li>
+          </ul>
+          <div class="directory-cta-wrap">
+            <button id="directoryBtn" class="directory-cta-btn" onclick="showDistrictDirectoryPdf()">Digital District Directory</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="feature-grid">
+        <div class="feature-card knowledge">
+          <div>
+            <div class="feature-icon">💡📖</div>
+            <h3 class="feature-title">Knowledge Hub</h3>
+            <p class="feature-desc">ज्ञान सम्बन्धी जानकारी पाउनुहोस्</p>
+          </div>
+          <button class="feature-btn" onclick="showKnowledgeSection()">Explore Knowledge</button>
+        </div>
+
+        <div class="feature-card program">
+          <div>
+            <div class="feature-icon">🗓️</div>
+            <h3 class="feature-title">Upcoming Program</h3>
+            <p class="feature-desc">आगामी बैठक वा कार्यक्रम हेर्नुहोस्</p>
+          </div>
+          <button class="feature-btn" onclick="showProgramSection()">View Details</button>
+        </div>
+
+        <div class="feature-card member">
+          <div>
+            <div class="feature-icon">🔎👤</div>
+            <h3 class="feature-title">Member Search</h3>
+            <p class="feature-desc">सदस्य जानकारी खोज्नुहोस्</p>
+          </div>
+          <button class="feature-btn" onclick="showMemberSection()">Search Member</button>
+        </div>
+
+        <div class="feature-card quiz">
+          <div>
+            <div class="feature-icon">💡❓</div>
+            <h3 class="feature-title">Quiz Contest</h3>
+            <p class="feature-desc">ज्ञान प्रतियोगितामा भाग लिनुहोस्</p>
+          </div>
+          <button class="feature-btn" onclick="showQuizSection()">Start Quiz</button>
+        </div>
+
+        <div class="feature-card member">
+          <div>
+            <div class="feature-icon">🦁</div>
+            <h3 class="feature-title">Lion Portal</h3>
+            <p class="feature-desc">Lion Portal मा प्रश्न गर्नुहोस</p>
+          </div>
+          <button class="feature-btn" onclick="showPortalSection()">Open Portal</button>
+        </div>
+      </div>
+
+      <div class="slogan-bar">Together We Serve</div>
+    </div>
+
+    <div id="knowledgeSection">
+      <div class="main-box">
+        <button class="home-btn" onclick="goHome()">Home</button>
+        <h2 class="section-title">Lions Knowledge System</h2>
+        <p class="section-desc">कृपया आफूले जान्न चाहेको लायन्स क्लबको बारेमा तल प्रश्न छान्नुहोस् ।</p>
+        <label for="questionSelect" class="field-label">कृपया आफुलाई चाहिएको प्रश्न छान्नुहोस् ।</label>
+        <select id="questionSelect" class="select-box">
+          <option value="">लोड हुँदैछ...</option>
+        </select>
+        <button type="button" class="btn" onclick="showAnswer()">उत्तर हेर्नुहोस्</button>
+        <div class="answer-box">
+          <h3 class="answer-title" id="answerTitle">उत्तर</h3>
+          <div id="result" class="answer-text">तपाईंले छान्नुभएको प्रश्नको उत्तर यहाँ देखिनेछ ।</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="quizSection">
+      <div class="main-box">
+        <button class="home-btn" onclick="goHome()">Home</button>
+        <h2 class="section-title">Quiz Contest</h2>
+        <p id="quizInstruction" class="section-desc">तपाईंको नाम लेखेर Quiz सुरु गर्नुहोस् ।</p>
+        <div id="quizBox" class="quiz-box">
+          <input id="playerName" class="quiz-input" placeholder="तपाईंको नाम">
+          <input id="playerPhone" class="quiz-input" placeholder="मोवाईल नम्बर" inputmode="numeric" maxlength="10" style="margin-top:10px;">
+          <button class="btn" onclick="startQuiz()" style="margin-top:10px;">Quiz सुरु गर्नुहोस्</button>
+        </div>
+        <div id="leaderboardBox" class="leaderboard-wrap"></div>
+      </div>
+    </div>
+
+    <div id="programSection">
+      <div class="main-box">
+        <button class="home-btn" onclick="goHome()">Home</button>
+        <h2 class="section-title">Upcoming Program</h2>
+        <p class="section-desc">डिष्ट्रिक्टका कार्यक्रम भएका मितिहरू calendar मा हरियो signal सहित देखिन्छन् ।</p>
+        <p class="program-search-help">हरियो signal भएको मिति क्लिक गर्नुहोस् ।</p>
+
+        <div class="calendar-wrap">
+          <div class="calendar-header">
+            <button class="calendar-nav-btn" onclick="changeProgramMonth(-1)">◀</button>
+            <div class="calendar-title" id="calendarTitle">Month Year</div>
+            <button class="calendar-nav-btn" onclick="changeProgramMonth(1)">▶</button>
+          </div>
+
+          <div class="calendar-grid" id="calendarDayNames"></div>
+          <div class="calendar-grid" id="programCalendarGrid"></div>
+        </div>
+
+        <div id="selectedProgramInfo" class="program-selected-info" style="display:none;"></div>
+        <h3 class="program-results-title">खोज नतिजा</h3>
+        <div id="programResult"></div>
+      </div>
+    </div>
+
+    <div id="memberSection">
+      <div class="main-box">
+        <button class="home-btn" onclick="goHome()">Home</button>
+        <h2 id="memberTitle" class="section-title">Member Search</h2>
+        <p id="memberDesc" class="section-desc">Member ID लेखेर सदस्यको विवरण हेर्नुहोस् ।</p>
+        <input id="memberIdInput" class="quiz-input" placeholder="Member ID">
+        <button id="memberSearchBtn" class="btn" onclick="searchMemberData()">Search Member</button>
+
+        <div id="birthdayBlock" class="birthday-block" onclick="loadBirthdayList()">
+          <div class="birthday-icon">🎂</div>
+          <div class="birthday-title">आजको Birthday</div>
+          <div class="birthday-subtitle">Click to view</div>
+        </div>
+
+        <div id="memberResult"></div>
+        <div id="birthdayContainer" style="display:none;"></div>
+      </div>
+    </div>
+
+    <div id="photoUpdatePanel" class="photo-modal">
+      <div class="photo-modal-card">
+        <button class="photo-modal-close" onclick="closePhotoUpdatePanel()">बन्द गर्नुहोस् ✖</button>
+        <div class="photo-modal-title">फोटो अपडेट गर्ने तरिका छान्नुहोस्</div>
+
+        <div class="photo-option-grid">
+          <div class="photo-option-card">
+            <div>
+              <div class="photo-option-icon">📁</div>
+              <div class="photo-option-title">फोटो छान्नुहोस्</div>
+              <div class="photo-option-desc">तपाईंको कम्प्युटर वा मोबाइल ग्यालरीबाट फोटो छान्नुहोस् र अपलोड गर्नुहोस् ।</div>
+              <div class="photo-rules">
+                ✔ रंगीन फोटो मात्र<br>
+                ✔ सफा, उज्यालो र clear face<br>
+                ✔ single person only<br>
+                ✔ black & white, sunglasses, closed eyes, cropped head reject
+              </div>
+
+              <input type="email" id="photoEmailInput" class="otp-input" placeholder="Database email auto fill" readonly>
+              <div class="otp-row">
+                <input type="text" id="photoOtpInput" class="otp-input" placeholder="OTP" inputmode="numeric" maxlength="6">
+                <button id="photoSendOtpBtn" class="small-action-btn" onclick="sendPhotoOtpForCurrentMember()">OTP पठाउनुहोस्</button>
+              </div>
+              <button id="photoVerifyOtpBtn" class="small-action-btn" style="width:100%; margin-top:8px;" onclick="verifyPhotoOtpForCurrentMember()">OTP Verify गर्नुहोस्</button>
+
+              <input type="file" id="photoInput" class="photo-input" accept="image/*">
+              <div id="photoPreview" class="photo-preview"></div>
+            </div>
+            <button class="photo-primary-btn" onclick="uploadPhoto()">⬆ फोटो अपलोड गर्नुहोस्</button>
+          </div>
+
+          <div class="photo-option-card qr-card">
+            <div>
+              <div class="photo-option-icon">▦</div>
+              <div class="photo-option-title">QR कोडबाट फोटो खिच्नुहोस्</div>
+              <div class="photo-option-desc">मोबाइलको camera प्रयोग गरेर QR code scan गरी फोटो खिच्नुहोस् र upload गर्नुहोस् ।</div>
+              <div class="photo-rules">
+                ✔ QR scan पछि mobile camera capture page खुल्छ<br>
+                ✔ त्यहाँ email OTP verify गरेपछि camera बाट photo खिच्नुहोस्<br>
+                ✔ Browser ले camera permission मागेमा Allow गर्नुहोस्
+              </div>
+            </div>
+            <button class="photo-primary-btn" onclick="openQR()">▦ QR कोड देखाउनुहोस्</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="qrBox" class="qr-modal">
+      <div class="qr-modal-card">
+        <button class="photo-modal-close" onclick="closeQR()">बन्द गर्नुहोस् ✖</button>
+        <div class="qr-title-bar">📷 QR कोड देखाउनुहोस्</div>
+        <div class="qr-inner-box">
+          <p style="font-size:18px; font-weight:800; color:#111827; margin-top:0;">मोबाइलबाट स्क्यान गरी फोटो खिच्नुहोस्</p>
+          <div id="qrImage" style="margin-top:12px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="mobileUploadSection" style="display:none;">
+      <div class="mobile-upload-card">
+        <div class="mobile-upload-title">📷 Member Photo Upload</div>
+        <div class="mobile-upload-desc" id="mobileUploadDesc">QR बाट आएको फोटो upload mode</div>
+
+        <input type="email" id="mobilePhotoEmail" class="otp-input" placeholder="Database email auto fill" readonly>
+        <div class="otp-row">
+          <input type="text" id="mobilePhotoOtp" class="otp-input" placeholder="OTP" inputmode="numeric" maxlength="6">
+          <button class="small-action-btn" onclick="sendMobilePhotoOtp()">OTP पठाउनुहोस्</button>
+        </div>
+        <button class="small-action-btn" style="width:100%; margin-top:8px;" onclick="verifyMobilePhotoOtp()">OTP Verify गर्नुहोस्</button>
+
+        <div class="photo-rules">
+          ✔ रंगीन, उज्यालो, clear face photo मात्र<br>
+          ✔ black & white, sunglasses, closed eyes, cropped head reject<br>
+          ✔ camera खुल्न browser permission Allow गर्नुहोस्
+        </div>
+
+        <button class="photo-primary-btn" onclick="startMobileCamera()">📷 Camera खोल्नुहोस्</button>
+        <video id="mobileCameraVideo" autoplay playsinline style="display:none;width:100%;border-radius:18px;margin-top:12px;background:#000;"></video>
+        <button id="mobileCaptureBtn" class="photo-primary-btn" style="display:none;" onclick="captureMobileCameraPhoto()">Capture Photo</button>
+        <canvas id="mobileCameraCanvas" style="display:none;"></canvas>
+        <div style="font-weight:800;color:#64748b;margin:12px 0 4px;">वा Gallery बाट छान्नुहोस्</div>
+        <input type="file" id="mobilePhotoInput" class="photo-input" accept="image/*" capture="user">
+        <div id="mobilePhotoPreview" class="photo-preview"></div>
+        <button class="photo-primary-btn" onclick="uploadMobilePhoto()">Photo Upload गर्नुहोस्</button>
+      </div>
+    </div>
+
+    <div id="portalSection">
+      <div class="main-box">
+        <button class="home-btn" onclick="goHome()">Home</button>
+        <h2 class="section-title">Lion Portal</h2>
+        <p class="section-desc">LionPortal सम्बन्धि प्रश्नहरूको उत्तर यहाँ हेर्नुहोस् ।</p>
+        <label for="portalSelect" class="field-label">कृपया प्रश्न छान्नुहोस् ।</label>
+        <select id="portalSelect" class="select-box">
+          <option value="">लोड हुँदैछ...</option>
+        </select>
+        <button type="button" class="btn" onclick="showPortalAnswer()">उत्तर हेर्नुहोस्</button>
+        <div class="portal-answer-box">
+          <h3 class="portal-answer-title" id="portalAnswerTitle">उत्तर</h3>
+          <div id="portalResult" class="portal-answer-text">तपाईंले छान्नुभएको प्रश्नको उत्तर यहाँ देखिनेछ ।</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div>Lions Knowledge System</div>
+      <div>Nirajan Aryal (9851113811)</div>
+    </div>
+  </div>
+
+  <button id="topBtn" onclick="scrollToTopPage()">⬆ माथि जानुहोस्</button>
+
+  <div id="customMessageBox" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.35); z-index:999999; align-items:center; justify-content:center;">
+    <div style="width:min(92%, 420px); background:#fff; border-radius:16px; padding:22px 18px; box-shadow:0 18px 40px rgba(0,0,0,0.18); text-align:center;">
+      <div id="customMessageText" style="font-size:18px; font-weight:700; color:#0f4c81; line-height:1.7; margin-bottom:16px;"></div>
+      <button onclick="hideCustomMessage()" style="padding:10px 22px; border:none; border-radius:10px; background:linear-gradient(135deg, #1a73e8, #0f4c81); color:#fff; font-size:16px; font-weight:700; cursor:pointer;">OK</button>
+    </div>
+  </div>
+
+  <script>
+    let quizData = [];
+    let currentQuizIndex = 0;
+    let quizScore = 0;
+    let quizTimer = null;
+    let quizTimeLeft = 30;
+    let activeTime = 0;
+    let questionStartTime = null;
+    let currentPlayerName = "";
+    let currentPlayerPhone = "";
+    let currentMemberData = null;
+
+    let programCalendarMap = {};
+    let currentCalendarDate = new Date();
+    let selectedProgramDate = "";
+
+    let isPhotoOtpVerified = false;
+    let mobileUploadMemberId = "";
+    let isMobileOtpVerified = false;
+    let photoBase64ForUpload = "";
+    let mobilePhotoBase64ForUpload = "";
+    let mobileCameraStream = null;
+
+    function fillPhotoEmailFromCurrentMember() {
+      const emailInput = document.getElementById("photoEmailInput");
+      if (!emailInput) return;
+      const dbEmail = currentMemberData && currentMemberData.email ? String(currentMemberData.email).trim() : "";
+      emailInput.value = dbEmail;
+      emailInput.readOnly = true;
+      if (!dbEmail) showCustomMessage("यो सदस्यको database मा email छैन । पहिले email update गर्नुहोस् ।");
+    }
+
+    function openPhotoUpdatePanel() {
+      if (!currentMemberData) {
+        showCustomMessage("पहिला Member Search गर्नुहोस् ।");
+        return;
+      }
+      isPhotoOtpVerified = false;
+      photoBase64ForUpload = "";
+      document.getElementById("photoOtpInput").value = "";
+      document.getElementById("photoPreview").innerHTML = "";
+      document.getElementById("photoInput").value = "";
+      fillPhotoEmailFromCurrentMember();
+      document.getElementById("photoSendOtpBtn").style.display = "inline-block";
+      document.getElementById("photoVerifyOtpBtn").style.display = "block";
+      document.getElementById("photoUpdatePanel").style.display = "block";
+    }
+
+    function closePhotoUpdatePanel() { document.getElementById("photoUpdatePanel").style.display = "none"; }
+
+    function prepareImageFileForUpload(file, previewElementId, callback) {
+      if (!file) return;
+      if (!/^image\//.test(file.type || "")) { showCustomMessage("कृपया image file मात्र select गर्नुहोस् ।"); return; }
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        const img = new Image();
+        img.onload = function() {
+          const maxSide = 1400;
+          let w = img.width, h = img.height;
+          if (w > h && w > maxSide) { h = Math.round(h * maxSide / w); w = maxSide; }
+          if (h >= w && h > maxSide) { w = Math.round(w * maxSide / h); h = maxSide; }
+          const canvas = document.createElement("canvas");
+          canvas.width = w; canvas.height = h;
+          canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+          const jpegData = canvas.toDataURL("image/jpeg", 0.92);
+          document.getElementById(previewElementId).innerHTML = '<img src="' + jpegData + '" alt="Preview">';
+          callback(jpegData.split(",")[1]);
+        };
+        img.onerror = function(){ showCustomMessage("Photo read गर्न सकिएन । अर्को image select गर्नुहोस् ।"); };
+        img.src = evt.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    document.getElementById("photoInput").addEventListener("change", function(e) {
+      prepareImageFileForUpload(e.target.files[0], "photoPreview", function(base64){ photoBase64ForUpload = base64; });
+    });
+
+    function setBtnLoading(btnId, isLoading, loadingText, normalText) {
+      const btn = document.getElementById(btnId);
+      if (!btn) return;
+
+      if (isLoading) {
+        btn.disabled = true;
+        btn.dataset.oldText = btn.innerHTML;
+        btn.innerHTML = '<span class="spinner" style="width:16px;height:16px;border-width:2px;margin-right:8px;vertical-align:middle;"></span>' + loadingText;
+        btn.style.opacity = "0.75";
+        btn.style.pointerEvents = "none";
+      } else {
+        btn.disabled = false;
+        btn.innerHTML = normalText || btn.dataset.oldText || btn.innerHTML;
+        btn.style.opacity = "1";
+        btn.style.pointerEvents = "auto";
+      }
+    }
+
+    function sendPhotoOtpForCurrentMember() {
+  if (!currentMemberData) { showCustomMessage("पहिला Member Search गर्नुहोस् ।"); return; }
+
+  const email = document.getElementById("photoEmailInput").value.trim();
+  if (!email) { showCustomMessage("यो सदस्यको database मा email छैन । पहिले email update गर्नुहोस् ।"); return; }
+
+  setBtnLoading("photoSendOtpBtn", true, "OTP पठाउँदैछ...", "OTP पठाउनुहोस्");
+
+  google.script.run
+    .withSuccessHandler(function(){
+      setBtnLoading("photoSendOtpBtn", false, "OTP पठाउनुहोस्", "OTP पठाउनुहोस्");
+      document.getElementById("photoSendOtpBtn").style.display = "none";
+      showCustomMessage("OTP database email मा पठाइयो ।");
+    })
+    .withFailureHandler(function(err){
+      setBtnLoading("photoSendOtpBtn", false, "OTP पठाउनुहोस्", "OTP पठाउनुहोस्");
+      showCustomMessage("OTP error: " + (err && err.message ? err.message : err));
+    })
+    .sendPhotoOtp(currentMemberData.memberId, email);
+}
+
+    function verifyPhotoOtpForCurrentMember() {
+      if (!currentMemberData) { showCustomMessage("पहिला Member Search गर्नुहोस् ।"); return; }
+
+      const email = document.getElementById("photoEmailInput").value.trim();
+      const otp = document.getElementById("photoOtpInput").value.trim();
+      if (!email || !otp) { showCustomMessage("Email र OTP दुवै चाहिन्छ ।"); return; }
+
+      setBtnLoading("photoVerifyOtpBtn", true, "Verify हुँदैछ...", "OTP Verify गर्नुहोस्");
+
+      google.script.run
+        .withSuccessHandler(function(ok){
+          isPhotoOtpVerified = !!ok;
+          setBtnLoading("photoVerifyOtpBtn", false, "OTP Verify गर्नुहोस्", "OTP Verify गर्नुहोस्");
+
+          if (ok) {
+            document.getElementById("photoVerifyOtpBtn").style.display = "none";
+          }
+
+          showCustomMessage(ok ? "OTP verified भयो । अब photo upload गर्नुहोस् ।" : "OTP मिलेन वा expire भयो ।");
+        })
+        .withFailureHandler(function(err){
+          setBtnLoading("photoVerifyOtpBtn", false, "OTP Verify गर्नुहोस्", "OTP Verify गर्नुहोस्");
+          showCustomMessage("OTP verify error: " + (err && err.message ? err.message : err));
+        })
+        .verifyPhotoOtp(currentMemberData.memberId, email, otp);
+    }
+
+    function uploadPhoto() {
+      const fileInput = document.getElementById("photoInput");
+      const email = document.getElementById("photoEmailInput").value.trim();
+      const otp = document.getElementById("photoOtpInput").value.trim();
+      if (!currentMemberData) { showCustomMessage("पहिला Member Search गर्नुहोस् ।"); return; }
+      if (!isPhotoOtpVerified) { showCustomMessage("पहिला OTP verify गर्नुहोस् ।"); return; }
+      if (!photoBase64ForUpload) { showCustomMessage("पहिला फोटो select गर्नुहोस् ।"); return; }
+      document.getElementById("photoPreview").innerHTML = '<div class="loading-wrap"><span class="spinner"></span><span class="loading-text">Gemini Photo Security Check हुँदैछ...</span></div>';
+      google.script.run.withSuccessHandler(function(){
+          showCustomMessage("Photo सफलतापूर्वक update भयो ।");
+          searchMemberData(); closePhotoUpdatePanel(); document.getElementById("photoPreview").innerHTML = ""; fileInput.value = ""; isPhotoOtpVerified = false; photoBase64ForUpload = "";
+        }).withFailureHandler(function(err){
+          document.getElementById("photoPreview").innerHTML = "";
+          showCustomMessage("Gemini quota limit पुगेको छ । केही समयपछि फेरि प्रयास गर्नुहोस् ।");
+        })
+        .verifyPhotoOtpAndUpload(currentMemberData.memberId, email, otp, photoBase64ForUpload);
+    }
+
+      function openQR() {
+        if (!currentMemberData) { showCustomMessage("पहिला Member Search गर्नुहोस् ।"); return; }
+
+        const baseUrl = window.location.href.split("?")[0];
+        const url = baseUrl + "?capture=" + encodeURIComponent(currentMemberData.memberId) + "&camera=1";
+
+        const qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=" + encodeURIComponent(url);
+
+        document.getElementById("qrImage").innerHTML =
+          '<img src="' + qrUrl + '" style="width:260px;max-width:100%;" alt="QR Code">' +
+          '<p style="font-size:13px;color:#475569;word-break:break-all;margin-top:10px;">' + url + '</p>';
+
+        document.getElementById("qrBox").style.display = "block";
+      }
+
+    function closeQR() { document.getElementById("qrBox").style.display = "none"; }
+    function getQueryParam(name) { const params = new URLSearchParams(window.location.search || ""); return params.get(name) || ""; }
+
+    function hideAllMainSectionsForMobileUpload() {
+      document.getElementById("homeScreen").style.display = "none";
+      document.getElementById("knowledgeSection").style.display = "none";
+      document.getElementById("quizSection").style.display = "none";
+      document.getElementById("programSection").style.display = "none";
+      document.getElementById("memberSection").style.display = "none";
+      document.getElementById("portalSection").style.display = "none";
+      document.getElementById("mobileUploadSection").style.display = "block";
+    }
+
+    function showMobilePhotoUpload(memberId) {
+      mobileUploadMemberId = String(memberId || "").trim();
+      if (!mobileUploadMemberId) return;
+      hideAllMainSectionsForMobileUpload();
+      isMobileOtpVerified = false; mobilePhotoBase64ForUpload = "";
+      document.getElementById("mobilePhotoOtp").value = "";
+      document.getElementById("mobilePhotoPreview").innerHTML = "";
+      document.getElementById("mobilePhotoInput").value = "";
+      document.getElementById("mobileUploadDesc").textContent = "Member ID: " + mobileUploadMemberId + " - member detail load हुँदैछ...";
+      setActiveNav('member');
+      google.script.run.withSuccessHandler(function(info){
+          currentMemberData = info;
+          document.getElementById("mobileUploadDesc").textContent = "Member: " + (info.name || "") + " (" + info.memberId + ")";
+          document.getElementById("mobilePhotoEmail").value = info.email || "";
+          document.getElementById("mobilePhotoEmail").readOnly = true;
+          if (!info.email) { showCustomMessage("यो सदस्यको database मा email छैन । पहिले email update गर्नुहोस् ।"); return; }
+          setTimeout(function(){
+            if (getQueryParam("camera") === "1") {
+              startMobileCameraAuto();
+            } else {
+              startMobileCamera();
+            }
+          }, 700);
+        }).withFailureHandler(function(err){ showCustomMessage("Member load error: " + (err && err.message ? err.message : err)); })
+        .getMemberPhotoUploadInfo(mobileUploadMemberId);
+    }
+
+    document.getElementById("mobilePhotoInput").addEventListener("change", function(e) {
+      prepareImageFileForUpload(e.target.files[0], "mobilePhotoPreview", function(base64){ mobilePhotoBase64ForUpload = base64; });
+    });
+
+    function startMobileCamera() {
+      const video = document.getElementById("mobileCameraVideo");
+      const captureBtn = document.getElementById("mobileCaptureBtn");
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { showCustomMessage("यो browser मा camera support छैन । Gallery बाट photo छान्नुहोस् ।"); return; }
+      if (mobileCameraStream) { mobileCameraStream.getTracks().forEach(function(t){ t.stop(); }); mobileCameraStream = null; }
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false }).then(function(stream){
+        mobileCameraStream = stream; video.srcObject = stream; video.style.display = "block"; captureBtn.style.display = "block";
+      }).catch(function(){ showCustomMessage("Camera खोल्न सकिएन । Browser permission Allow गर्नुहोस् वा Gallery बाट photo छान्नुहोस् ।"); });
+    }
+
+    function startMobileCameraAuto() {
+      startMobileCamera();
+
+      setTimeout(function() {
+        const video = document.getElementById("mobileCameraVideo");
+        const input = document.getElementById("mobilePhotoInput");
+
+        if ((!video || video.style.display === "none") && input) {
+          try {
+            input.setAttribute("capture", "user");
+            input.click();
+          } catch (e) {
+            showCustomMessage("Camera auto खोल्न browser ले रोकेको छ । Camera खोल्नुहोस् button थिच्नुहोस् ।");
+          }
+        }
+      }, 1200);
+    }
+
+    function captureMobileCameraPhoto() {
+      const video = document.getElementById("mobileCameraVideo");
+      const canvas = document.getElementById("mobileCameraCanvas");
+      if (!video || !video.videoWidth) { showCustomMessage("Camera ready भएको छैन । फेरि प्रयास गर्नुहोस् ।"); return; }
+      canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+      canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
+      mobilePhotoBase64ForUpload = dataUrl.split(",")[1];
+      document.getElementById("mobilePhotoPreview").innerHTML = '<img src="' + dataUrl + '" alt="Preview">';
+    }
+
+    function sendMobilePhotoOtp() {
+      const email = document.getElementById("mobilePhotoEmail").value.trim();
+      if (!mobileUploadMemberId) { showCustomMessage("Member ID missing छ ।"); return; }
+      if (!email) { showCustomMessage("यो सदस्यको database मा email छैन ।"); return; }
+      showCustomMessage("OTP पठाउँदैछ... कृपया पर्खनुहोस् ।");
+      google.script.run.withSuccessHandler(function(){ showCustomMessage("OTP database email मा पठाइयो ।"); })
+        .withFailureHandler(function(err){ showCustomMessage("OTP error: " + (err && err.message ? err.message : err)); })
+        .sendPhotoOtp(mobileUploadMemberId, email);
+    }
+
+    function verifyMobilePhotoOtp() {
+      const email = document.getElementById("mobilePhotoEmail").value.trim();
+      const otp = document.getElementById("mobilePhotoOtp").value.trim();
+      if (!email || !otp) { showCustomMessage("Email र OTP दुवै चाहिन्छ ।"); return; }
+      showCustomMessage("OTP verify हुँदैछ... कृपया पर्खनुहोस् ।");
+      google.script.run.withSuccessHandler(function(ok){ isMobileOtpVerified = !!ok; showCustomMessage(ok ? "OTP verified भयो । अब photo capture/upload गर्नुहोस् ।" : "OTP मिलेन वा expire भयो ।"); })
+        .withFailureHandler(function(err){ showCustomMessage("OTP verify error: " + (err && err.message ? err.message : err)); })
+        .verifyPhotoOtp(mobileUploadMemberId, email, otp);
+    }
+
+    function uploadMobilePhoto() {
+      const input = document.getElementById("mobilePhotoInput");
+      const email = document.getElementById("mobilePhotoEmail").value.trim();
+      const otp = document.getElementById("mobilePhotoOtp").value.trim();
+      if (!mobileUploadMemberId) { showCustomMessage("Member ID missing छ ।"); return; }
+      if (!isMobileOtpVerified) { showCustomMessage("पहिला OTP verify गर्नुहोस् ।"); return; }
+      if (!mobilePhotoBase64ForUpload) { showCustomMessage("पहिला फोटो खिच्नुहोस्/छान्नुहोस् ।"); return; }
+      document.getElementById("mobilePhotoPreview").innerHTML = '<div class="loading-wrap"><span class="spinner"></span><span class="loading-text">Gemini Photo Security Check हुँदैछ...</span></div>';
+      google.script.run.withSuccessHandler(function(){
+          showCustomMessage("Photo सफलतापूर्वक update भयो ।"); document.getElementById("mobilePhotoPreview").innerHTML = ""; input.value = ""; isMobileOtpVerified = false; mobilePhotoBase64ForUpload = "";
+          if (mobileCameraStream) { mobileCameraStream.getTracks().forEach(function(t){ t.stop(); }); mobileCameraStream = null; }
+        }).withFailureHandler(function(err){
+          document.getElementById("mobilePhotoPreview").innerHTML = "";
+          showCustomMessage("Gemini quota limit पुगेको छ । केही समयपछि फेरि प्रयास गर्नुहोस् ।");
+        })
+        .verifyPhotoOtpAndUpload(mobileUploadMemberId, email, otp, mobilePhotoBase64ForUpload);
+    }
+
+    function setActiveNav(mode) {
+      var navs = document.querySelectorAll('.top-nav-btn');
+      navs.forEach(function(btn) { btn.classList.remove('active'); });
+
+      if (mode === 'home') navs[0].classList.add('active');
+      if (mode === 'quiz') navs[1].classList.add('active');
+      if (mode === 'program') navs[2].classList.add('active');
+      if (mode === 'member') navs[3].classList.add('active');
+      if (mode === 'knowledge') navs[4].classList.add('active');
+      if (mode === 'portal') navs[5].classList.add('active');
+    }
+
+    function showCustomMessage(message) {
+      document.getElementById("customMessageText").textContent = message;
+      document.getElementById("customMessageBox").style.display = "flex";
+    }
+
+    function hideCustomMessage() {
+      document.getElementById("customMessageBox").style.display = "none";
+    }
+
+    function getOptionLetter(index) {
+      const letters = ["A", "B", "C", "D"];
+      return letters[index] || "";
+    }
+
+    function showHomeScreen() {
+      document.getElementById("homeScreen").style.display = "block";
+      document.getElementById("knowledgeSection").style.display = "none";
+      document.getElementById("quizSection").style.display = "none";
+      document.getElementById("programSection").style.display = "none";
+      document.getElementById("memberSection").style.display = "none";
+      document.getElementById("portalSection").style.display = "none";
+      document.getElementById("mobileUploadSection").style.display = "none";
+      setActiveNav('home');
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function showKnowledgeSection() {
+      document.getElementById("homeScreen").style.display = "none";
+      document.getElementById("knowledgeSection").style.display = "block";
+      document.getElementById("quizSection").style.display = "none";
+      document.getElementById("programSection").style.display = "none";
+      document.getElementById("memberSection").style.display = "none";
+      document.getElementById("portalSection").style.display = "none";
+      setActiveNav('knowledge');
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function showDistrictDirectoryPdf() {
+      var btn = document.getElementById("directoryBtn");
+      if (!btn) return;
+      if (btn.disabled) return;
+
+      var originalText = btn.dataset.originalText || btn.innerHTML;
+      btn.dataset.originalText = originalText;
+
+      btn.disabled = true;
+      btn.innerHTML = "लोड हुँदैछ...";
+      btn.style.opacity = "0.75";
+      btn.style.cursor = "not-allowed";
+
+      google.script.run
+        .withSuccessHandler(function(link) {
+          window.open(link, "_blank");
+          setTimeout(function() {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+            btn.style.opacity = "1";
+            btn.style.cursor = "pointer";
+          }, 1200);
+        })
+        .withFailureHandler(function(error) {
+          alert("PDF link load भएन: " + (error && error.message ? error.message : error));
+          btn.disabled = false;
+          btn.innerHTML = originalText;
+          btn.style.opacity = "1";
+          btn.style.cursor = "pointer";
+        })
+        .getDistrictDirectoryPdfLink();
+    }
+
+    function showQuizSection() {
+      document.getElementById("homeScreen").style.display = "none";
+      document.getElementById("knowledgeSection").style.display = "none";
+      document.getElementById("quizSection").style.display = "block";
+      document.getElementById("programSection").style.display = "none";
+      document.getElementById("memberSection").style.display = "none";
+      document.getElementById("portalSection").style.display = "none";
+      document.getElementById("quizInstruction").textContent = "तपाईंको नाम लेखेर Quiz सुरु गर्नुहोस् ।";
+      resetQuizStartView();
+      loadLeaderboard();
+      setActiveNav('quiz');
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function showProgramSection() {
+      document.getElementById("homeScreen").style.display = "none";
+      document.getElementById("knowledgeSection").style.display = "none";
+      document.getElementById("quizSection").style.display = "none";
+      document.getElementById("programSection").style.display = "block";
+      document.getElementById("memberSection").style.display = "none";
+      document.getElementById("portalSection").style.display = "none";
+      setActiveNav('program');
+      window.scrollTo({ top: 0, behavior: "smooth" });
+
+      var today = new Date();
+      currentCalendarDate = new Date(today.getFullYear(), today.getMonth(), 1);
+      selectedProgramDate = formatDateKey(today.getFullYear(), today.getMonth(), today.getDate());
+
+      loadProgramCalendarData();
+    }
+
+    function showMemberSection() {
+      document.getElementById("homeScreen").style.display = "none";
+      document.getElementById("knowledgeSection").style.display = "none";
+      document.getElementById("quizSection").style.display = "none";
+      document.getElementById("programSection").style.display = "none";
+      document.getElementById("portalSection").style.display = "none";
+      document.getElementById("memberSection").style.display = "block";
+      resetMemberBirthdayView();
+      setActiveNav('member');
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function showPortalSection() {
+      document.getElementById("homeScreen").style.display = "none";
+      document.getElementById("knowledgeSection").style.display = "none";
+      document.getElementById("quizSection").style.display = "none";
+      document.getElementById("programSection").style.display = "none";
+      document.getElementById("memberSection").style.display = "none";
+      document.getElementById("portalSection").style.display = "block";
+      setActiveNav('portal');
+      loadPortalQuestions();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function loadPortalQuestions() {
+      var select = document.getElementById("portalSelect");
+      if (!select) return;
+      select.innerHTML = '<option value="">लोड हुँदैछ...</option>';
+
+      google.script.run
+        .withSuccessHandler(function(questions) {
+          select.innerHTML = '<option value="">-- प्रश्न छान्नुहोस् --</option>';
+          if (!questions || questions.length === 0) {
+            select.innerHTML = '<option value="">कुनै प्रश्न भेटिएन</option>';
+            return;
+          }
+          questions.forEach(function(question) {
+            var option = document.createElement("option");
+            option.value = question;
+            option.textContent = question;
+            select.appendChild(option);
+          });
+        })
+        .withFailureHandler(function(error) {
+          select.innerHTML = '<option value="">Error loading portal questions</option>';
+          showCustomMessage("Portal load error: " + (error && error.message ? error.message : error));
+        })
+        .getPortalQuestions();
+    }
+
+    function showPortalAnswer() {
+      var query = document.getElementById("portalSelect").value;
+      var resultDiv = document.getElementById("portalResult");
+      var answerTitle = document.getElementById("portalAnswerTitle");
+
+      if (!query) {
+        answerTitle.textContent = "उत्तर";
+        resultDiv.textContent = "कृपया प्रश्न छान्नुहोस् ।";
+        return;
+      }
+
+      answerTitle.textContent = query;
+      resultDiv.innerHTML = '<div class="loading-wrap"><span class="spinner"></span><span class="loading-text">लोड हुँदैछ...</span></div>';
+
+      google.script.run
+        .withSuccessHandler(function(answer) {
+          resultDiv.innerHTML = answer;
+        })
+        .withFailureHandler(function(error) {
+          resultDiv.textContent = "Error: " + (error && error.message ? error.message : error);
+          showCustomMessage("Portal answer error: " + (error && error.message ? error.message : error));
+        })
+        .getPortalAnswer(query);
+    }
+
+    function goHome() {
+      showHomeScreen();
+    }
+
+    function loadQuestions() {
+      var select = document.getElementById("questionSelect");
+      select.innerHTML = '<option value="">लोड हुँदैछ...</option>';
+
+      google.script.run
+        .withSuccessHandler(function(questions) {
+          select.innerHTML = '<option value="">-- प्रश्न छान्नुहोस् --</option>';
+          if (!questions || questions.length === 0) {
+            select.innerHTML = '<option value="">कुनै प्रश्न भेटिएन</option>';
+            return;
+          }
+          questions.forEach(function(question) {
+            var option = document.createElement("option");
+            option.value = question;
+            option.textContent = question;
+            select.appendChild(option);
+          });
+        })
+        .withFailureHandler(function(error) {
+          select.innerHTML = '<option value="">Error loading questions</option>';
+          console.error(error);
+          showCustomMessage("Questions load error: " + (error && error.message ? error.message : error));
+        })
+        .getQuestions();
+    }
+
+    function showAnswer() {
+      var query = document.getElementById("questionSelect").value;
+      var resultDiv = document.getElementById("result");
+      var answerTitle = document.getElementById("answerTitle");
+
+      if (!query) {
+        answerTitle.textContent = "उत्तर";
+        resultDiv.textContent = "कृपया प्रश्न छान्नुहोस् ।";
+        return;
+      }
+
+      answerTitle.textContent = query;
+      resultDiv.innerHTML = '<div class="loading-wrap"><span class="spinner"></span><span class="loading-text">लोड हुँदैछ...</span></div>';
+
+      google.script.run
+        .withSuccessHandler(function(answer) {
+          resultDiv.innerHTML = answer;
+        })
+        .withFailureHandler(function(error) {
+          resultDiv.textContent = "Error: " + (error && error.message ? error.message : error);
+          console.error(error);
+          showCustomMessage("Answer load error: " + (error && error.message ? error.message : error));
+        })
+        .getExactAnswer(query);
+    }
+
+    function startQuiz() {
+      var nameInput = document.getElementById("playerName");
+      var phoneInput = document.getElementById("playerPhone");
+
+      var name = nameInput ? nameInput.value.trim() : "";
+      var phone = phoneInput ? phoneInput.value.trim() : "";
+
+      if (!name) {
+        showCustomMessage("कृपया नाम लेख्नुहोस् ।");
+        return;
+      }
+      if (!phone) {
+        showCustomMessage("कृपया मोवाईल नम्बर लेख्नुहोस् ।");
+        return;
+      }
+      if (!/^\d{10}$/.test(phone)) {
+        showCustomMessage("कृपया १० अङ्कको सही मोवाईल नम्बर लेख्नुहोस् ।");
+        return;
+      }
+
+      currentPlayerName = name;
+      currentPlayerPhone = phone;
+      document.getElementById("leaderboardBox").style.display = "none";
+
+      var quizBox = document.getElementById("quizBox");
+      quizBox.innerHTML =
+        '<div class="quiz-start-loading">' +
+          '<span class="spinner"></span>' +
+          '<div class="quiz-start-loading-text">Quiz लोड हुँदैछ...</div>' +
+        '</div>';
+
+      google.script.run
+        .withSuccessHandler(function(data) {
+          quizData = data || [];
+          if (quizData.length === 0) {
+            showCustomMessage("Quiz मा प्रश्न छैन ।");
+            document.getElementById("leaderboardBox").style.display = "block";
+            resetQuizStartView();
+            return;
+          }
+
+          currentQuizIndex = 0;
+          quizScore = 0;
+          activeTime = 0;
+          document.getElementById("quizInstruction").textContent = "कृपया तोकिएको समयभित्रमा आफ्नो उत्तर दिनुहोला ।";
+          renderQuizQuestion();
+        })
+        .withFailureHandler(function(error) {
+          showCustomMessage("Quiz load error: " + (error && error.message ? error.message : error));
+          document.getElementById("leaderboardBox").style.display = "block";
+          resetQuizStartView();
+        })
+        .getQuizQuestions();
+    }
+
+    function renderQuizQuestion() {
+      if (currentQuizIndex >= quizData.length) {
+        finishQuiz();
+        return;
+      }
+
+      clearInterval(quizTimer);
+      quizTimeLeft = 30;
+      questionStartTime = new Date();
+
+      var q = quizData[currentQuizIndex];
+      var quizBox = document.getElementById("quizBox");
+
+      var html = '';
+      html += '<div class="quiz-meta">';
+      html += '<div class="timer-pill">⏱️ समय: <span id="quizTimerText">30</span> sec</div>';
+      html += '<div class="score-pill">प्रश्न ' + (currentQuizIndex + 1) + ' / ' + quizData.length + '</div>';
+      html += '</div>';
+      html += '<div class="quiz-question">' + escapeHtmlClient(q.question) + '</div>';
+      html += '<div class="quiz-progress">सही उत्तर: ' + quizScore + '</div>';
+      html += '<div class="quiz-options-wrap">';
+
+      for (var i = 0; i < q.options.length; i++) {
+        html += '<button class="quiz-option-btn" onclick="checkAnswer(' + i + ')">';
+        html += '<span class="option-letter">' + getOptionLetter(i) + '</span>';
+        html += '<span class="option-text">' + escapeHtmlClient(q.options[i]) + '</span>';
+        html += '</button>';
+      }
+
+      html += '</div>';
+      quizBox.innerHTML = html;
+
+      quizTimer = setInterval(function() {
+        quizTimeLeft--;
+        var timerText = document.getElementById("quizTimerText");
+        if (timerText) timerText.textContent = quizTimeLeft;
+
+        if (quizTimeLeft <= 0) {
+          clearInterval(quizTimer);
+
+          var isLastQuestion = currentQuizIndex === quizData.length - 1;
+          var q2 = quizData[currentQuizIndex];
+
+          var timeoutHtml = '';
+          timeoutHtml += '<div class="quiz-meta">';
+          timeoutHtml += '<div class="timer-pill">⏱️ समय सकियो</div>';
+          timeoutHtml += '<div class="score-pill">प्रश्न ' + (currentQuizIndex + 1) + ' / ' + quizData.length + '</div>';
+          timeoutHtml += '</div>';
+          timeoutHtml += '<div class="quiz-question">' + escapeHtmlClient(q2.question) + '</div>';
+          timeoutHtml += '<div class="quiz-feedback wrong-feedback">⏰ समय सकियो<span class="correct-answer-line">सही उत्तर: ' + escapeHtmlClient(q2.correct) + '</span></div>';
+          timeoutHtml += !isLastQuestion
+            ? '<div class="quiz-loading-next">अर्को प्रश्न ५ सेकेन्डपछि आउँछ...</div>'
+            : '<div class="quiz-loading-next">क्विज समाप्त हुँदैछ...</div>';
+
+          quizBox.innerHTML = timeoutHtml;
+
+          setTimeout(function() {
+            currentQuizIndex++;
+            if (currentQuizIndex >= quizData.length) {
+              finishQuiz();
+            } else {
+              renderQuizQuestion();
+            }
+          }, 5000);
+        }
+      }, 1000);
+    }
+
+    function checkAnswer(optionIndex) {
+      clearInterval(quizTimer);
+
+      var now = new Date();
+      if (questionStartTime) {
+        activeTime += Math.floor((now - questionStartTime) / 1000);
+      }
+
+      var currentQuestion = quizData[currentQuizIndex];
+      var selected = currentQuestion.options[optionIndex];
+      var isCorrect = selected === currentQuestion.correct;
+      var isLastQuestion = currentQuizIndex === quizData.length - 1;
+
+      if (isCorrect) {
+        quizScore++;
+      }
+
+      var quizBox = document.getElementById("quizBox");
+      var html = '';
+      html += '<div class="quiz-meta">';
+      html += '<div class="timer-pill">⏱️ समय: ' + quizTimeLeft + ' sec</div>';
+      html += '<div class="score-pill">प्रश्न ' + (currentQuizIndex + 1) + ' / ' + quizData.length + '</div>';
+      html += '</div>';
+      html += '<div class="quiz-question">' + escapeHtmlClient(currentQuestion.question) + '</div>';
+
+      if (isCorrect) {
+        html += '<div class="quiz-feedback correct-feedback">✅ सही उत्तर</div>';
+      } else {
+        html += '<div class="quiz-feedback wrong-feedback">❌ गलत उत्तर<span class="correct-answer-line">सही उत्तर: ' + escapeHtmlClient(currentQuestion.correct) + '</span></div>';
+      }
+
+      html += !isLastQuestion
+        ? '<div class="quiz-loading-next">अर्को प्रश्न ५ सेकेन्डपछि आउँछ...</div>'
+        : '<div class="quiz-loading-next">क्विज समाप्त हुँदैछ...</div>';
+
+      quizBox.innerHTML = html;
+
+      setTimeout(function() {
+        currentQuizIndex++;
+        if (currentQuizIndex >= quizData.length) {
+          finishQuiz();
+        } else {
+          renderQuizQuestion();
+        }
+      }, 5000);
+    }
+
+    function finishQuiz() {
+      clearInterval(quizTimer);
+      document.getElementById("quizInstruction").textContent = "तपाईंको Quiz Contest समाप्त भयो । नतिजा तल हेर्नुहोस् ।";
+
+      var total = quizData.length;
+      var timeTaken = activeTime;
+      var percent = total > 0 ? Math.round((quizScore / total) * 100) : 0;
+
+      var quizBox = document.getElementById("quizBox");
+      var html = '';
+      html += '<div class="certificate-card">';
+      html += '<h3>🎉 तपाईंको Quiz समाप्त भयो</h3>';
+      html += '<p>यो प्रमाणित गरिन्छ कि</p>';
+      html += '<div class="certificate-name">' + escapeHtmlClient(currentPlayerName) + '</div>';
+      html += '<p>ले <b>' + quizScore + ' / ' + total + '</b> score प्राप्त गर्नुभयो ।</p>';
+      html += '<p>Percentage: <b>' + percent + '%</b></p>';
+      html += '<p>Active Time: <b>' + timeTaken + ' sec</b></p>';
+      html += '</div>';
+      html += '<button class="btn" onclick="restartQuiz()" style="margin-top:12px;">फेरि Quiz खेल्नुहोस्</button>';
+
+      quizBox.innerHTML = html;
+
+      google.script.run
+        .withSuccessHandler(function() {
+          loadLeaderboard();
+          showCustomMessage("तपाईंको Quiz समाप्त भयो । Result सफलतापूर्वक save भयो ।");
+        })
+        .withFailureHandler(function(error) {
+          console.error(error);
+          loadLeaderboard();
+          showCustomMessage("Result save error: " + (error && error.message ? error.message : error));
+        })
+        .saveScore(currentPlayerName, currentPlayerPhone, quizScore, total, timeTaken);
+    }
+
+    function resetQuizStartView() {
+      document.getElementById("quizBox").innerHTML =
+        '<input id="playerName" class="quiz-input" placeholder="तपाईंको नाम">' +
+        '<input id="playerPhone" class="quiz-input" placeholder="मोवाईल नम्बर" inputmode="numeric" maxlength="10" style="margin-top:10px;">' +
+        '<button class="btn" onclick="startQuiz()" style="margin-top:10px;">Quiz सुरु गर्नुहोस्</button>';
+    }
+
+    function restartQuiz() {
+      clearInterval(quizTimer);
+      currentPlayerName = "";
+      currentPlayerPhone = "";
+      activeTime = 0;
+      questionStartTime = null;
+      document.getElementById("quizInstruction").textContent = "तपाईंको नाम लेखेर Quiz सुरु गर्नुहोस् ।";
+      resetQuizStartView();
+      loadLeaderboard();
+    }
+
+    function loadLeaderboard() {
+      google.script.run
+        .withSuccessHandler(function(rows) {
+          var box = document.getElementById("leaderboardBox");
+          box.style.display = "block";
+
+          if (!rows || rows.length === 0) {
+            box.innerHTML = '';
+            return;
+          }
+
+          var html = '<div class="leaderboard-title">🏆 Top 10 Participants</div>';
+          html += '<table class="leaderboard-table">';
+          html += '<tr><th>Rank</th><th>Name</th><th>Score</th><th>Time</th></tr>';
+
+          rows.forEach(function(row, idx) {
+            html += '<tr>';
+            html += '<td>' + (idx + 1) + '</td>';
+            html += '<td>' + escapeHtmlClient(row.name) + '</td>';
+            html += '<td>' + row.score + '/' + row.total + '</td>';
+            html += '<td>' + row.timeTaken + ' sec</td>';
+            html += '</tr>';
+          });
+
+          html += '</table>';
+          box.innerHTML = html;
+        })
+        .withFailureHandler(function(error) {
+          console.error(error);
+        })
+        .getLeaderboard();
+    }
+
+    function loadProgramConfig() {
+      google.script.run.withSuccessHandler(function(config) {
+        if (config && config.orgName) {
+          document.getElementById('heroOrgName').textContent = config.orgName;
+        }
+      }).getAppConfig();
+    }
+
+    function loadProgramCalendarData() {
+      document.getElementById('programResult').innerHTML =
+        '<div class="loading-wrap"><span class="spinner"></span><span class="loading-text">कार्यक्रम लोड हुँदैछ...</span></div>';
+      document.getElementById('selectedProgramInfo').style.display = 'none';
+
+      google.script.run
+        .withSuccessHandler(function(map) {
+          programCalendarMap = map || {};
+          renderProgramCalendar();
+
+          if (selectedProgramDate && programCalendarMap[selectedProgramDate]) {
+            renderProgramResults(programCalendarMap[selectedProgramDate]);
+          } else {
+            document.getElementById('programResult').innerHTML =
+              '<div class="empty">आज डिष्ट्रिक्टको कार्यक्रम छैन ।</div>';
+          }
+        })
+        .withFailureHandler(function(error) {
+          document.getElementById('programResult').innerHTML =
+            '<div class="empty">Error: ' + escapeHtmlClient(error && error.message ? error.message : error) + '</div>';
+        })
+        .getProgramCalendarData();
+    }
+
+    function renderProgramCalendar() {
+      renderCalendarDayNames();
+
+      var titleEl = document.getElementById('calendarTitle');
+      var gridEl = document.getElementById('programCalendarGrid');
+
+      var year = currentCalendarDate.getFullYear();
+      var month = currentCalendarDate.getMonth();
+
+      var monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+      titleEl.textContent = monthNames[month] + ' ' + year;
+
+      var firstDay = new Date(year, month, 1);
+      var startWeekday = firstDay.getDay();
+      var daysInMonth = new Date(year, month + 1, 0).getDate();
+
+      var today = new Date();
+      var todayKey = formatDateKey(today.getFullYear(), today.getMonth(), today.getDate());
+
+      var html = '';
+
+      for (var i = 0; i < startWeekday; i++) {
+        html += '<div class="calendar-day empty-day"></div>';
+      }
+
+      for (var day = 1; day <= daysInMonth; day++) {
+        var dateKey = formatDateKey(year, month, day);
+        var classes = ['calendar-day'];
+
+        if (programCalendarMap[dateKey]) classes.push('has-program');
+        if (selectedProgramDate === dateKey) classes.push('selected-day');
+        if (todayKey === dateKey) classes.push('today-day');
+
+        html += '<button type="button" class="' + classes.join(' ') + '" onclick="selectProgramDate(\'' + dateKey + '\')">' + day + '</button>';
+      }
+
+      gridEl.innerHTML = html;
+      updateSelectedProgramInfo();
+    }
+
+    function renderCalendarDayNames() {
+      var dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      var html = '';
+      for (var i = 0; i < dayNames.length; i++) {
+        html += '<div class="day-name">' + dayNames[i] + '</div>';
+      }
+      document.getElementById('calendarDayNames').innerHTML = html;
+    }
+
+    function changeProgramMonth(offset) {
+      currentCalendarDate = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() + offset, 1);
+      renderProgramCalendar();
+    }
+
+    function selectProgramDate(dateKey) {
+      selectedProgramDate = dateKey;
+      renderProgramCalendar();
+      renderProgramResults(programCalendarMap[dateKey] || []);
+    }
+
+    function updateSelectedProgramInfo() {
+      var box = document.getElementById('selectedProgramInfo');
+      if (!selectedProgramDate) {
+        box.style.display = 'none';
+        box.textContent = '';
+        return;
+      }
+
+      box.style.display = 'block';
+      if (programCalendarMap[selectedProgramDate]) {
+        box.textContent = 'छानिएको मिति: ' + selectedProgramDate;
+      } else {
+        box.textContent = 'छानिएको मिति: ' + selectedProgramDate + ' — यो मितिमा कार्यक्रम छैन ।';
+      }
+    }
+
+    function renderProgramResults(results) {
+      var resultDiv = document.getElementById('programResult');
+
+      if (!results || results.length === 0) {
+        resultDiv.innerHTML = '<div class="empty">यो मितिमा डिष्ट्रिक्टको कुनै कार्यक्रम छैन ।</div>';
+        return;
+      }
+
+      var html = '';
+      results.forEach(function(item) {
+        html += '<div class="event-card">' +
+          '<div class="event-date-panel">' +
+            '<div class="event-date-label">Event Date</div>' +
+            '<div class="event-date-value">' + escapeHtmlClient(item.date || '') + '</div>' +
+          '</div>' +
+          '<div class="event-body">' +
+            '<h3 class="event-title">' + escapeHtmlClient(item.title || '') + '</h3>' +
+            '<div class="info-stack">' +
+              '<div class="info-pill">समय: ' + escapeHtmlClient(item.time || 'उल्लेख छैन') + '</div>' +
+              '<div class="info-pill">स्थान: ' + escapeHtmlClient(item.location || 'उल्लेख छैन') + '</div>' +
+            '</div>' +
+            '<div class="details-box">' + escapeHtmlClient(item.details || 'डिष्ट्रिक्टको विवरण उपलब्ध छैन ।') + '</div>' +
+          '</div>' +
+        '</div>';
+      });
+
+      resultDiv.innerHTML = html;
+    }
+
+    function loadWeeklyPrograms() {
+      google.script.run
+        .withSuccessHandler(function(data) {
+          var box = document.getElementById("weeklyPrograms");
+          if (!box) return;
+
+          if (!data || data.length === 0) {
+            box.innerHTML = '<div class="weekly-empty">यो हप्तामा कार्यक्रम छैन ।</div>';
+            return;
+          }
+
+          var html = '';
+          data.forEach(function(item) {
+            html += '<div class="weekly-item">' + escapeHtmlClient(item.date) + ' - ' + escapeHtmlClient(item.title) + '</div>';
+          });
+          box.innerHTML = html;
+        })
+        .withFailureHandler(function() {
+          var box = document.getElementById("weeklyPrograms");
+          if (box) {
+            box.innerHTML = '<div class="weekly-empty">कार्यक्रम लोड हुन सकेन ।</div>';
+          }
+        })
+        .getThisWeekPrograms();
+    }
+
+
+    function buildMemberFieldsHtml(data, options) {
+      options = options || {};
+      var includeEmpty = !!options.includeEmpty;
+      var skipLabelsMap = {
+        'name': true,
+        'member name': true,
+        'full name': true,
+        'member id': true,
+        'membership no': true,
+        'membership number': true,
+        'membership no.': true,
+        'member no': true,
+        'photo': true,
+        'member photo': true,
+        'image': true,
+        'photo url': true,
+        'photourl': true,
+        'image url': true,
+        'imageurl': true,
+        'photo link': true,
+        'photolink': true
+      };
+
+      var html = '';
+      var fields = Array.isArray(data.fields) ? data.fields : [];
+      fields.forEach(function(field) {
+        var label = String(field && field.label || '').trim();
+        var value = String(field && field.value || '');
+        var normalized = label.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+        if (!label || skipLabelsMap[normalized]) return;
+        if (!includeEmpty && !value.trim()) return;
+        html += memberBox(label, value);
+      });
+      return html;
+    }
+
+    function buildMemberPrintFieldsHtml(data, options) {
+      options = options || {};
+      var includeEmpty = !!options.includeEmpty;
+      var fields = Array.isArray(data.fields) ? data.fields : [];
+      var skipLabelsMap = {
+        'name': true,
+        'member name': true,
+        'full name': true,
+        'member id': true,
+        'membership no': true,
+        'membership number': true,
+        'membership no.': true,
+        'member no': true,
+        'photo': true,
+        'member photo': true,
+        'image': true,
+        'photo url': true,
+        'photourl': true,
+        'image url': true,
+        'imageurl': true,
+        'photo link': true,
+        'photolink': true
+      };
+
+      var html = '';
+      fields.forEach(function(field) {
+        var label = String(field && field.label || '').trim();
+        var value = String(field && field.value || '');
+        var normalized = label.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+        if (!label || skipLabelsMap[normalized]) return;
+        if (!includeEmpty && !value.trim()) return;
+        html += '<div class="member-box"><strong>' + escapeHtmlClient(label) + '</strong><div class="member-box-value">' + escapeHtmlClient(value).replace(/\n/g, '<br>') + '</div></div>';
+      });
+      return html;
+    }
+
+
+    let todayBirthdayList = [];
+
+    function resetMemberBirthdayView() {
+      var input = document.getElementById("memberIdInput");
+      var searchBtn = document.getElementById("memberSearchBtn");
+      var result = document.getElementById("memberResult");
+      var birthdayBlock = document.getElementById("birthdayBlock");
+      var birthdayContainer = document.getElementById("birthdayContainer");
+      var desc = document.getElementById("memberDesc");
+      var title = document.getElementById("memberTitle");
+
+      if (input) input.style.display = "block";
+      if (searchBtn) searchBtn.style.display = "block";
+      if (desc) desc.style.display = "block";
+      if (title) title.style.display = "block";
+      if (birthdayBlock) birthdayBlock.style.display = "block";
+
+      if (birthdayContainer) {
+        birthdayContainer.style.display = "none";
+        birthdayContainer.innerHTML = "";
+      }
+
+      if (result) {
+        result.style.display = "block";
+        result.innerHTML = "";
+      }
+    }
+
+    function loadBirthdayList() {
+      var input = document.getElementById("memberIdInput");
+      var searchBtn = document.getElementById("memberSearchBtn");
+      var result = document.getElementById("memberResult");
+      var birthdayBlock = document.getElementById("birthdayBlock");
+      var birthdayContainer = document.getElementById("birthdayContainer");
+      var desc = document.getElementById("memberDesc");
+      var title = document.getElementById("memberTitle");
+
+      if (input) input.style.display = "none";
+      if (searchBtn) searchBtn.style.display = "none";
+      if (desc) desc.style.display = "none";
+      if (title) title.style.display = "none";
+      if (birthdayBlock) birthdayBlock.style.display = "none";
+
+      if (result) {
+        result.style.display = "none";
+        result.innerHTML = "";
+      }
+
+      if (!birthdayContainer) return;
+
+      birthdayContainer.style.display = "block";
+      birthdayContainer.innerHTML = '<div class="loading-wrap"><span class="spinner"></span><span class="loading-text">Birthday list लोड हुँदैछ...</span></div>';
+
+      google.script.run
+        .withSuccessHandler(function(data) {
+          todayBirthdayList = Array.isArray(data) ? data : [];
+
+          if (!todayBirthdayList.length) {
+            birthdayContainer.innerHTML =
+              '<div class="birthday-list-wrap">' +
+                '<div class="birthday-list-title">🎂 Today\'s Birthday</div>' +
+                '<div class="empty">आज कुनै सदस्यको जन्मदिन छैन ।</div>' +
+                '<button class="birthday-back-btn" onclick="resetMemberBirthdayView()">Back</button>' +
+              '</div>';
+            return;
+          }
+
+          var listHtml = '<div class="birthday-list-wrap">';
+          listHtml += '<div class="birthday-list-title">🎂 Today\'s Birthday</div>';
+
+          todayBirthdayList.forEach(function(item, index) {
+  var line = escapeHtmlClient(item.name || '');
+
+          var topPosition = String(item.position || '')
+            .split(/\n|,| {2,}/)
+            .map(function(x) { return x.trim(); })
+            .filter(function(x) { return x !== ''; })[0] || '';
+
+          if (topPosition) line += ' — ' + escapeHtmlClient(topPosition);
+          if (item.club) line += ' - ' + escapeHtmlClient(item.club);
+
+          listHtml += '<div class="birthday-item" onclick="showBirthdayCard(' + index + ')">' + line + '</div>';
+        });
+
+          listHtml += '<button class="birthday-back-btn" onclick="resetMemberBirthdayView()">Back</button>';
+          listHtml += '</div>';
+
+          birthdayContainer.innerHTML = listHtml;
+        })
+        .withFailureHandler(function(error) {
+          birthdayContainer.innerHTML =
+            '<div class="birthday-list-wrap">' +
+              '<div class="empty">Error: ' + escapeHtmlClient(error && error.message ? error.message : error) + '</div>' +
+              '<button class="birthday-back-btn" onclick="resetMemberBirthdayView()">Back</button>' +
+            '</div>';
+        })
+        .getTodayBirthdays();
+    }
+
+    function getBirthdayLogoUrl() {
+      return 'https://www.dropbox.com/scl/fi/pb17qybnb3uzkxgh8rq12/Lions-Logo.png?rlkey=hq73znfpt5qrurjr178uhfl97&st=ugo2mlyb&raw=1';
+    }
+
+    function escapeHtmlAttr(value) {
+      return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+      function getBirthdayWishMessage(item) {
+    var lines = [];
+
+    var topPosition = String(item.position || '')
+      .split(/\n|,| {2,}/)
+      .map(function(x) { return x.trim(); })
+      .filter(function(x) { return x !== ''; })[0] || '';
+
+    lines.push('Happy Birthday ' + (item.name || '') + ' 🎉');
+
+    if (topPosition) lines.push(topPosition);
+    if (item.club) lines.push(item.club);
+
+    lines.push('');
+    lines.push('Happy Birthday!" to heartfelt messages like "Wishing you a day as wonderful as your heart" and fun, energetic greetings like "Happy birthday, you legend ! 🎂');
+
+    return lines.join('\n');
+  }
+
+    function openBirthdayWhatsApp(index) {
+      var item = todayBirthdayList[index];
+      if (!item) return;
+      var url = 'https://wa.me/?text=' + encodeURIComponent(getBirthdayWishMessage(item));
+      window.open(url, '_blank');
+    }
+
+    function printBirthdayCard() {
+      var shell = document.getElementById('birthdayCardShell');
+      if (!shell) return;
+
+      var win = window.open('', '_blank');
+      if (!win) {
+        alert('Print window खुल्न सकेन । Browser popup allow गर्नुहोस् ।');
+        return;
+      }
+
+      win.document.write('<html><head><title>Birthday Card</title><style>' +
+        'body{margin:0;padding:20px;background:#f4f6fb;font-family:Arial,sans-serif;display:flex;justify-content:center;}' +
+        '.wrap{width:min(100%,760px);}' +
+        '.birthday-card-btn-row{display:none !important;}' +
+        '</style></head><body><div class="wrap">' + shell.outerHTML + '</div></body></html>');
+      win.document.close();
+      win.focus();
+      setTimeout(function(){ win.print(); }, 500);
+    }
+
+    function showBirthdayCard(index) {
+      var item = todayBirthdayList[index];
+      var birthdayContainer = document.getElementById("birthdayContainer");
+      if (!item || !birthdayContainer) return;
+
+      var logoUrl = getBirthdayLogoUrl();
+      var photoHtml = item.photo
+        ? '<img class="birthday-card-photo" src="' + escapeHtmlAttr(item.photo) + '" alt="Birthday Photo">'
+        : '<div class="birthday-card-no-photo">No Photo</div>';
+
+      var html = '<div id="birthdayCardShell" class="birthday-card-shell">';
+      html += '<div class="birthday-card-top">';
+      html += '<div class="birthday-card-confetti"></div>';
+      html += '<img class="birthday-card-logo" src="' + escapeHtmlAttr(logoUrl) + '" alt="Lions Logo">';
+      html += '<div class="birthday-card-heading">Happy Birthday</div>';
+      html += '</div>';
+
+      html += '<div class="birthday-card-stage">';
+      html += '<div class="birthday-card-photo-ring">' + photoHtml + '</div>';
+      html += '<img class="birthday-card-logo-inline" src="' + escapeHtmlAttr(logoUrl) + '" alt="Lions Logo">';
+      html += '<div class="birthday-card-name">' + escapeHtmlClient(item.name || '') + '</div>';
+
+      var topPosition = String(item.position || '')
+        .split(/\n|,| {2,}/)
+        .map(function(x) { return x.trim(); })
+        .filter(function(x) { return x !== ''; })[0] || '';
+
+      if (topPosition) {
+        html += '<div class="birthday-card-position">' + escapeHtmlClient(topPosition) + '</div>';
+      }
+      if (item.club) {
+        html += '<div class="birthday-card-club">' + escapeHtmlClient(item.club) + '</div>';
+      }
+
+      html += '<div class="birthday-card-divider"></div>';
+      html += '<div class="birthday-card-contact">';
+      if (item.mobile) {
+        html += '<div class="birthday-card-contact-line"><span class="emoji">📞</span><span>' + escapeHtmlClient(item.mobile) + '</span></div>';
+      }
+      if (item.email) {
+        html += '<div class="birthday-card-contact-line"><span class="emoji">📧</span><span>' + escapeHtmlClient(item.email) + '</span></div>';
+      }
+      html += '</div>';
+
+      html += '<div class="birthday-card-btn-row">';
+      html += '<button class="birthday-card-btn back" onclick="loadBirthdayList()">Back</button>';
+      html += '<button class="birthday-card-btn print" onclick="printBirthdayCard()">Print</button>';
+      html += '<button class="birthday-card-btn whatsapp" onclick="openBirthdayWhatsApp(' + index + ')">WhatsApp Wish</button>';
+      html += '</div>';
+      html += '</div>';
+      html += '</div>';
+
+      birthdayContainer.innerHTML = html;
+    }
+
+    function searchMemberData() {
+      var memberId = document.getElementById("memberIdInput").value.trim();
+      var resultDiv = document.getElementById("memberResult");
+
+      if (!memberId) {
+        resultDiv.innerHTML = '<div class="empty">कृपया Member ID लेख्नुहोस् ।</div>';
+        currentMemberData = null;
+        return;
+      }
+
+      resultDiv.innerHTML = '<div class="loading-wrap"><span class="spinner"></span><span class="loading-text">Member detail लोड हुँदैछ...</span></div>';
+
+      google.script.run
+        .withSuccessHandler(function(data) {
+          if (!data) {
+            resultDiv.innerHTML = '<div class="empty">यो Member ID को सदस्य भेटिएन ।</div>';
+            currentMemberData = null;
+            return;
+          }
+
+          currentMemberData = data;
+
+          var photoCoreHtml = data.photo
+            ? '<img src="' + escapeAttributeClient(data.photo) + '" class="member-photo" alt="Member Photo">'
+            : '<div class="member-photo" style="display:inline-flex;align-items:center;justify-content:center;color:#64748b;font-weight:700;">No Photo</div>';
+
+          var photoHtml =
+            '<div class="member-photo-wrap no-print-ready">' +
+              photoCoreHtml +
+              '<div class="no-print"><button class="photo-mini-action" onclick="openPhotoUpdatePanel()">📷 Update Photo</button></div>' +
+            '</div>';
+
+          resultDiv.innerHTML =
+            '<div class="member-card">' +
+              '<div class="member-hero">' +
+                photoHtml +
+                '<div class="member-name">' + escapeHtmlClient((currentMemberData.name || '') + ((currentMemberData.memberId || '') ? ' (' + currentMemberData.memberId + ')' : '')) + '</div>' +
+                '<div class="member-club">' + escapeHtmlClient(data.club || '') + '</div>' +
+              '</div>' +
+              '<div class="member-grid">' +
+                buildMemberFieldsHtml(data, { includeEmpty: true }) +
+              '</div>' +
+              '<div class="member-actions no-print">' +
+                '<button class="member-action-btn" onclick="printMemberCard()">Print</button>' +
+                '<button class="member-action-btn" onclick="printCompactMemberCard()">Card Print</button>' +
+              '</div>' +
+            '</div>';
+        })
+        .withFailureHandler(function(error) {
+          currentMemberData = null;
+          resultDiv.innerHTML = '<div class="empty">Error: ' + escapeHtmlClient(error && error.message ? error.message : error) + '</div>';
+        })
+        .searchMember(memberId);
+    }
+
+    function memberBox(label, value) {
+      var safeValue = escapeHtmlClient(value || '').replace(/\n/g, '<br>');
+      return '<div class="member-box"><strong>' + escapeHtmlClient(label) + '</strong><div class="member-box-value">' + safeValue + '</div></div>';
+    }
+
+    function printMemberCard() {
+      if (!currentMemberData) {
+        showCustomMessage("पहिला Member Search गरेर सदस्यको विवरण खोल्नुहोस् ।");
+        return;
+      }
+
+      var photoHtml = currentMemberData.photo
+        ? '<img src="' + escapeAttributeClient(currentMemberData.photo) + '" class="member-photo" alt="Member Photo">'
+        : '<div class="member-photo" style="display:inline-flex;align-items:center;justify-content:center;color:#64748b;font-weight:700;">No Photo</div>';
+
+      var printable =
+        '<div class="member-card">' +
+          '<div class="member-hero">' +
+            photoHtml +
+            '<div class="member-name">' + escapeHtmlClient((currentMemberData.name || '') + ((currentMemberData.memberId || '') ? ' (' + currentMemberData.memberId + ')' : '')) + '</div>' +
+            '<div class="member-club">' + escapeHtmlClient(currentMemberData.club || '') + '</div>' +
+          '</div>' +
+          '<div class="member-grid">' + buildMemberPrintFieldsHtml(currentMemberData, { includeEmpty: true }) + '</div>' +
+        '</div>';
+
+      var w = window.open("", "_blank");
+      w.document.write('<html><head><title>Member Card</title><style>body{font-family:Arial;padding:20px;background:#fff;} .member-action-btn{display:none;} .member-card{max-width:900px;margin:auto;} .member-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;} .member-box{border:1px solid #ddd;padding:10px;border-radius:8px;} .member-hero{text-align:center;padding-bottom:20px;} .member-photo{width:130px;height:130px;border-radius:50%;object-fit:cover;}</style></head><body>');
+      
+      w.document.write(printable);
+      w.document.write('</body></html>');
+      w.document.close();
+      w.focus();
+
+      setTimeout(function() {
+        w.print();
+      }, 1200);
+      
+    }
+    function printCompactMemberCard() {
+      if (!currentMemberData) {
+        showCustomMessage("पहिला Member Search गरेर सदस्यको विवरण खोल्नुहोस् ।");
+        return;
+      }
+
+      var cardHtml = buildCompactMemberCardHtml(currentMemberData);
+      var w = window.open('', '_blank');
+      if (!w) {
+        showCustomMessage("Card Print window खुल्न सकेन । Browser popup allow गर्नुहोस् ।");
+        return;
+      }
+
+      w.document.open();
+      w.document.write(cardHtml);
+      w.document.close();
+      w.focus();
+      setTimeout(function() {
+        try {
+          w.print();
+        } catch (e) {}
+      }, 500);
+    }
+
+    function buildCompactMemberCardHtml(data) {
+      var memberName = escapeHtmlClient(data.name || '');
+      var memberId = escapeHtmlClient(data.memberId || '');
+      var club = escapeHtmlClient(data.club || '');
+      var district = escapeHtmlClient(data.parentZone || '');
+      var mobile = escapeHtmlClient(data.mobile || '');
+      var email = escapeHtmlClient(data.email || '');
+      var address = escapeHtmlClient(((data.addressLine1 || '') + (data.city ? ', ' + data.city : '')).replace(/^,\s*/, ''));
+      var photo = data.photo ? escapeAttributeClient(data.photo) : '';
+
+      return '<!DOCTYPE html>' +
+        '<html lang="ne">' +
+        '<head>' +
+          '<meta charset="UTF-8">' +
+          '<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
+          '<title>Member Card Print</title>' +
+          '<style>' +
+            '@page{size:86mm 54mm;margin:0;}' +
+            '*{box-sizing:border-box;}' +
+            'body{margin:0;padding:16px;font-family:Arial,sans-serif;background:#ece8f7;display:flex;justify-content:center;}' +
+            '.print-wrap{width:min(94vw,560px);margin:0 auto;}' +
+            '.card-shell{width:100%;aspect-ratio:86/54;background:linear-gradient(180deg,#f5f7ff,#eef3ff);border-radius:24px;padding:12px;border:2px solid #d8dff5;box-shadow:0 12px 28px rgba(42,64,152,0.16);display:flex;flex-direction:column;}' +
+            '.card-top{background:linear-gradient(135deg,#2349d8,#4c6cff);border-radius:18px;padding:10px 14px;color:#fff;box-shadow:0 8px 18px rgba(45,78,225,0.24);}' +
+            '.card-top-inner{display:grid;grid-template-columns:64px 1fr;align-items:center;gap:12px;}' +
+            '.card-top img.logo{width:64px;height:64px;border-radius:50%;object-fit:contain;background:#ffffff;padding:6px;display:block;box-shadow:0 4px 10px rgba(0,0,0,0.14);mix-blend-mode:normal;filter:none;}' +
+            '.card-top-text{text-align:center;padding-right:14px;}' +
+            '.card-top-title{font-size:28px;font-weight:800;line-height:1.12;margin:0;color:#ffffff;}' +
+            '.card-top-subtitle{font-size:15px;font-weight:700;line-height:1.3;margin:4px 0 0;color:#ffffff;opacity:0.98;}' +
+            '.card-body{margin-top:10px;background:linear-gradient(180deg,#ffffff,#f8fbff);border-radius:18px;border:1px solid #d8def2;padding:12px;box-shadow:0 8px 18px rgba(47,77,169,0.08);flex:1;display:flex;flex-direction:column;justify-content:space-between;}' +
+            '.card-grid{display:grid;grid-template-columns:33% 1fr;gap:12px;align-items:start;min-height:0;}' +
+            '.left-card{text-align:center;}' +
+            '.photo-box{background:#dfeaff;border-radius:16px;padding:8px;box-shadow:inset 0 0 0 1px rgba(36,73,216,0.12);}' +
+            '.member-photo-box{width:100%;aspect-ratio:1/1;border-radius:14px;overflow:hidden;background:#eef3ff;display:flex;align-items:center;justify-content:center;}' +
+            '.member-photo-box img{width:100%;height:100%;object-fit:cover;display:block;}' +
+            '.no-photo{font-size:18px;font-weight:700;color:#4a5a83;}' +
+            '.member-card-label{font-size:15px;font-weight:800;color:#1a3a8a;margin-top:8px;text-align:center;letter-spacing:0.2px;line-height:1.2;}' +
+            '.right-card{padding-top:2px;min-width:0;}' +
+            '.member-right-name{font-size:24px;font-weight:800;color:#172554;line-height:1.08;margin-bottom:6px;white-space:normal;word-break:break-word;overflow-wrap:anywhere;}' +
+            '.member-right-id{font-size:clamp(12px,2.2vw,20px);color:#313b57;line-height:1.35;margin-bottom:10px;}' +
+            '.member-right-id span{font-weight:800;color:#1f3f96;}' +
+            '.divider{height:1px;background:#dde3f4;margin:10px 0 8px;}' +
+            '.info-list{display:flex;flex-direction:column;gap:6px;}' +
+            '.info-row{display:grid;grid-template-columns:18px 1fr;align-items:start;gap:8px;font-size:clamp(10px,1.9vw,16px);line-height:1.35;color:#2f3b58;}' +
+            '.icon{width:18px;min-width:18px;font-size:15px;line-height:1.1;text-align:center;}' +
+            '.label{font-weight:800;color:#1e2b4f;}' +
+            '.value{font-weight:500;color:#2f3b58;word-break:break-word;}' +
+            '.ok-btn-wrap{text-align:center;margin-top:10px;}' +
+            '.ok-btn{display:inline-flex;align-items:center;justify-content:center;min-width:120px;padding:8px 18px;border-radius:999px;border:none;background:linear-gradient(135deg,#2a4fe1,#4c6cff);color:#fff;font-size:14px;font-weight:800;box-shadow:0 8px 14px rgba(50,83,227,0.22);}' +
+            '@media (max-width:760px){body{padding:10px}.print-wrap{width:min(96vw,420px)}.card-shell{border-radius:20px;padding:10px}.card-top{padding:10px 12px;border-radius:16px}.card-top-inner{grid-template-columns:52px 1fr;gap:10px}.card-top img.logo{width:52px;height:52px;padding:5px}.card-top-text{padding-right:4px}.card-top-title{font-size:18px}.card-top-subtitle{font-size:10px}.card-body{padding:10px;border-radius:16px}.card-grid{grid-template-columns:38% 1fr;gap:10px}.member-card-label{font-size:12px;margin-top:6px}.member-right-name{font-size:clamp(15px,6vw,24px);line-height:1.08}.member-right-id{font-size:11px;margin-bottom:8px}.info-row{font-size:10px;gap:6px;grid-template-columns:16px 1fr}.icon{width:16px;min-width:16px;font-size:12px}.no-photo{font-size:13px}.ok-btn{min-width:90px;font-size:12px;padding:7px 14px}}' +
+            '@media print{html,body{width:86mm;height:54mm}body{background:#fff;padding:0;display:block}.print-wrap{width:86mm}.card-shell{width:86mm;height:54mm;border:none;box-shadow:none;border-radius:0;padding:1.8mm}.card-top{border-radius:3.5mm;padding:1.6mm 2.2mm}.card-top-inner{grid-template-columns:11mm 1fr;gap:2mm}.card-top img.logo{width:11mm;height:11mm;padding:1mm;box-shadow:none}.card-top-text{padding-right:1mm}.card-top-title{font-size:10pt}.card-top-subtitle{font-size:5.2pt}.card-body{margin-top:1.6mm;border-radius:3.5mm;padding:1.8mm;box-shadow:none}.card-grid{grid-template-columns:24mm 1fr;gap:1.8mm}.photo-box{border-radius:3mm;padding:1.2mm}.member-photo-box{border-radius:2.4mm}.member-card-label{font-size:6.2pt;margin-top:1.1mm}.member-right-name{font-size:10.8pt;margin-bottom:0.8mm}.member-right-id{font-size:6.8pt;margin-bottom:1.1mm}.divider{margin:1.1mm 0 0.9mm}.info-list{gap:0.7mm}.info-row{font-size:5.9pt;gap:1mm;grid-template-columns:3.8mm 1fr}.icon{width:3.8mm;min-width:3.8mm;font-size:5.8pt}.ok-btn-wrap{display:none}}' +
+          '</style>' +
+        '</head>' +
+        '<body>' +
+          '<div class="print-wrap">' +
+            '<div class="card-shell">' +
+              '<div class="card-top">' +
+                '<div class="card-top-inner">' +
+                  '<img class="logo" src="https://www.dropbox.com/scl/fi/pb17qybnb3uzkxgh8rq12/Lions-Logo.png?rlkey=hq73znfpt5qrurjr178uhfl97&st=ugo2mlyb&raw=1" alt="Lions Logo">' +
+                  '<div class="card-top-text">' +
+                    '<div class="card-top-title">Lions International</div>' +
+                    '<div class="card-top-subtitle">MD 325, District 325 F, Nepal</div>' +
+                  '</div>' +
+                '</div>' +
+              '</div>' +
+              '<div class="card-body">' +
+                '<div class="card-grid">' +
+                  '<div class="left-card">' +
+                    '<div class="photo-box">' +
+                      '<div class="member-photo-box">' +
+                        (photo ? '<img src="' + photo + '" alt="Member Photo">' : '<div class="no-photo">No Photo</div>') +
+                      '</div>' +
+                    '</div>' +
+                    '<div class="member-card-label">सदस्यता कार्ड</div>' +
+                  '</div>' +
+                  '<div class="right-card">' +
+                    '<div class="member-right-name auto-fit-name">' + escapeHtmlClient(memberName) + '</div>' +
+                    '<div class="member-right-id">Membership No.: <span>' + memberId + '</span></div>' +
+                    '<div class="divider"></div>' +
+                    '<div class="info-list">' +
+                      '<div class="info-row"><div class="icon">🏛️</div><div><span class="label">क्लब :</span> <span class="value">' + club + '</span></div></div>' +
+                      (currentMemberData.position ? '<div class="info-row"><div class="icon">🏅</div><div><span class="label">पोजिसन : </span><span class="value">' + escapeHtmlClient(currentMemberData.position) + '</span></div></div>' : '') +
+                      '<div class="info-row"><div class="icon">📞</div><div><span class="label">मोबाइल :</span> <span class="value">' + mobile + '</span></div></div>' +
+                      '<div class="info-row"><div class="icon">✉️</div><div><span class="label">इमेल :</span> <span class="value">' + email + '</span></div></div>' +
+                      '<div class="info-row"><div class="icon">📍</div><div><span class="label">ठेगाना :</span> <span class="value">' + address + '</span></div></div>' +
+                    '</div>' +
+                  '</div>' +
+                '</div>' +
+                '<div class="ok-btn-wrap"><button class="ok-btn" onclick="window.print()">OK</button></div>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+        '</body>' +
+        '</html>';
+    }
+
+    document.addEventListener("contextmenu", function(e) {
+      e.preventDefault();
+    });
+
+    document.addEventListener("copy", function(e) {
+      e.preventDefault();
+      showCustomMessage("Copy गर्न मिल्दैन ।");
+    });
+
+    document.addEventListener("cut", function(e) {
+      e.preventDefault();
+      showCustomMessage("Cut गर्न मिल्दैन ।");
+    });
+
+    document.addEventListener("dragstart", function(e) {
+      e.preventDefault();
+    });
+
+    document.addEventListener("keydown", function(e) {
+      var key = (e.key || "").toLowerCase();
+
+      if (e.key === "F12") {
+        e.preventDefault();
+        showCustomMessage("यो shortcut disabled छ ।");
+        return;
+      }
+
+      if (e.ctrlKey || e.metaKey) {
+        if (key === "c" || key === "u" || key === "s" || key === "p" || key === "a" || key === "x") {
+          e.preventDefault();
+          showCustomMessage("यो shortcut disabled छ ।");
+          return;
+        }
+      }
+    });
+
+    window.addEventListener("resize", function() {
+    });
+
+    function formatDateKey(year, monthIndex, day) {
+      var mm = String(monthIndex + 1).padStart(2, '0');
+      var dd = String(day).padStart(2, '0');
+      return year + '-' + mm + '-' + dd;
+    }
+
+    function escapeHtmlClient(text) {
+      return String(text || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function escapeAttributeClient(text) {
+      return String(text || "")
+        .replace(/&/g, "&amp;")
+        .replace(/"/g, "&quot;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
+    function scrollToTopPage() {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    window.addEventListener("scroll", function() {
+      var btn = document.getElementById("topBtn");
+      if (!btn) return;
+      btn.style.display = window.scrollY > 300 ? "block" : "none";
+    });
+
+    window.onload = function() {
+      loadQuestions();
+      loadProgramConfig();
+      loadWeeklyPrograms();
+
+      var captureMemberId = getQueryParam("capture") || getQueryParam("upload");
+      if (captureMemberId) {
+        showMobilePhotoUpload(captureMemberId);
+        return;
+      }
+
+      showHomeScreen();
+    };
+  </script>
+</body>
+</html>
