@@ -123,6 +123,7 @@
     </div>
     <button class="nav-btn active" data-panel="dashboard" onclick="showPanel('dashboard',this)">🏠 Dashboard</button>
     <button class="nav-btn module-nav" data-module="QUIZ" data-panel="quizmanage" onclick="showPanel('quizmanage',this)">❓ Quiz Management</button>
+    <button class="nav-btn super-only" data-panel="quizbest" onclick="showPanel('quizbest',this)">🏆 Quiz Best Attempts</button>
     <button class="nav-btn module-nav" data-module="PROGRAMS" data-panel="programmanage" onclick="showPanel('programmanage',this)">🗓 Program Management</button>
     <button class="nav-btn module-nav" data-module="KNOWLEDGE" data-panel="knowledgemanage" onclick="showPanel('knowledgemanage',this)">💡 Knowledge Management</button>
     <button class="nav-btn module-nav" data-module="MEMBERS" data-panel="membermanage" onclick="showPanel('membermanage',this)">👤 Member Management</button>
@@ -176,6 +177,24 @@
       </div>
       <div id="quizEditor" class="card" style="display:none;"></div>
       <div class="card"><div id="quizList"></div></div>
+    </section>
+
+
+    <section id="panel-quizbest" class="panel super-only">
+      <div class="card">
+        <h2>Quiz Best Attempts</h2>
+        <p style="color:#64748b;line-height:1.6;">
+          प्रत्येक participant का सबै attempts Leaderboard sheet मा सुरक्षित रहन्छन् ।
+          यहाँ प्रत्येक participant को best attempt मात्र देखाइन्छ ।
+          Higher Score प्राथमिक हुन्छ र score बराबर भए Lower Time प्राथमिक हुन्छ ।
+        </p>
+        <div class="actions">
+          <button class="secondary" onclick="loadQuizBestAttempts()">Refresh</button>
+          <button class="secondary" onclick="printQuizBestAttempts()">Print</button>
+          <button class="secondary" onclick="downloadQuizBestAttemptsCsv()">Download CSV</button>
+        </div>
+        <div id="quizBestTable" style="margin-top:14px;"></div>
+      </div>
     </section>
 
     <section id="panel-programmanage" class="panel">
@@ -474,7 +493,8 @@ function actionLabel(action) {
     superAdminCommitMemberImport:'Member import save हुँदैछ...',
     superAdminGetMemberImportHistory:'Import history load हुँदैछ...',
     superAdminGetMemberProfileProgress:'Profile progress load हुँदैछ...',
-    superAdminGetMemberProfileDetail:'Member detail load हुँदैछ...'
+    superAdminGetMemberProfileDetail:'Member detail load हुँदैछ...',
+    superAdminGetQuizBestAttempts:'Quiz best attempts load हुँदैछ...'
   };
   return map[action] || 'प्रक्रिया भइरहेको छ...';
 }
@@ -642,6 +662,7 @@ function showPanel(name,btn) {
   if(name==='securityevents' && currentUser && currentUser.role==='SUPER_ADMIN') loadSecurityEvents();
   if(name==='memberimport' && currentUser && currentUser.role==='SUPER_ADMIN') loadMemberImportHistory();
   if(name==='profileprogress' && currentUser && currentUser.role==='SUPER_ADMIN') loadProfileProgress();
+  if(name==='quizbest' && currentUser && currentUser.role==='SUPER_ADMIN') loadQuizBestAttempts();
 }
 
 async function logout() {
@@ -1552,6 +1573,76 @@ function viewMemberRequestChanges(requestId) {
   html+='</div>';
   document.getElementById('msgText').innerHTML=html;
   document.getElementById('msg').style.display='flex';
+}
+
+
+
+let quizBestAttemptsCache = [];
+
+async function loadQuizBestAttempts() {
+  try {
+    const rows=await api('superAdminGetQuizBestAttempts',[sessionToken,100]);
+    quizBestAttemptsCache=rows||[];
+
+    let html='<div style="overflow:auto;"><table id="quizBestPrintable"><thead><tr>'+
+      '<th>Rank</th><th>Name</th><th>Phone</th><th>Score</th><th>Time</th><th>Date</th>'+
+      '</tr></thead><tbody>';
+
+    quizBestAttemptsCache.forEach(r=>{
+      html+='<tr>'+
+        '<td>'+esc(r.rank)+'</td>'+
+        '<td>'+esc(r.name)+'</td>'+
+        '<td>'+esc(r.phone||'')+'</td>'+
+        '<td>'+esc(r.score)+' / '+esc(r.total)+'</td>'+
+        '<td>'+esc(r.timeTaken)+' sec</td>'+
+        '<td>'+esc(r.date||'')+'</td>'+
+        '</tr>';
+    });
+
+    html+='</tbody></table></div>';
+    document.getElementById('quizBestTable').innerHTML=html;
+  } catch(e) {
+    document.getElementById('quizBestTable').innerHTML='<div class="notice">'+esc(e.message||e)+'</div>';
+  }
+}
+
+function printQuizBestAttempts() {
+  const table=document.getElementById('quizBestPrintable');
+  if(!table) return message('Quiz Best Attempts load गर्नुहोस् ।');
+
+  const w=window.open('','_blank');
+  w.document.write(
+    '<html><head><title>Quiz Best Attempts</title>'+
+    '<style>body{font-family:Arial;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #999;padding:7px;font-size:12px}th{background:#eee}</style>'+
+    '</head><body><h2>Quiz Best Attempts</h2>'+table.outerHTML+'</body></html>'
+  );
+  w.document.close();
+  w.focus();
+  w.print();
+}
+
+function downloadQuizBestAttemptsCsv() {
+  if(!quizBestAttemptsCache.length) return message('Quiz Best Attempts load गर्नुहोस् ।');
+
+  const rows=[['Rank','Name','Phone','Score','Total','Time (sec)','Date']];
+  quizBestAttemptsCache.forEach(r=>rows.push([
+    r.rank,r.name,r.phone||'',r.score,r.total,r.timeTaken,r.date||''
+  ]));
+
+  const csv=rows.map(r=>r.map(v=>{
+    const s=String(v==null?'':v).replace(/"/g,'""');
+    return '"'+s+'"';
+  }).join(',')).join('\r\n');
+
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download='Quiz_Best_Attempts.csv';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
 
 
