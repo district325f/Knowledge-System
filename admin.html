@@ -98,6 +98,7 @@
       .hide-mobile { display:none; }
     }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 <div id="loginScreen" class="login-wrap">
@@ -125,6 +126,8 @@
     <button class="nav-btn module-nav" data-module="PROGRAMS" data-panel="programmanage" onclick="showPanel('programmanage',this)">🗓 Program Management</button>
     <button class="nav-btn module-nav" data-module="KNOWLEDGE" data-panel="knowledgemanage" onclick="showPanel('knowledgemanage',this)">💡 Knowledge Management</button>
     <button class="nav-btn module-nav" data-module="MEMBERS" data-panel="membermanage" onclick="showPanel('membermanage',this)">👤 Member Management</button>
+    <button class="nav-btn super-only" data-panel="memberimport" onclick="showPanel('memberimport',this)">📥 Member Monthly Import</button>
+    <button class="nav-btn super-only" data-panel="profileprogress" onclick="showPanel('profileprogress',this)">📊 Profile Progress</button>
     <button class="nav-btn super-only" data-panel="admins" onclick="showPanel('admins',this)">👥 Admin Management</button>
     <button class="nav-btn super-only" data-panel="permissions" onclick="showPanel('permissions',this)">✅ Permissions</button>
     <button class="nav-btn module-nav" data-module="MEMBER_REQUESTS" data-panel="memberrequests" onclick="showPanel('memberrequests',this)">📝 Member Requests</button>
@@ -211,6 +214,50 @@
         </div>
       </div>
       <div id="memberManageResult"></div>
+    </section>
+
+
+    <section id="panel-memberimport" class="panel super-only">
+      <div class="card">
+        <h2>Member Monthly Import</h2>
+        <p style="color:#64748b;line-height:1.7;">
+          Lion Portal बाट डाउनलोड गरिएको CSV वा XLSX file upload गर्नुहोस् ।
+          System ले Member ID अनुसार New / Updated / Dropped / Reinstated / Unchanged छुट्याएर Preview देखाउँछ ।
+        </p>
+
+        <label>CSV / XLSX File</label>
+        <input id="memberImportFile" type="file" accept=".csv,.xlsx,.xls">
+
+        <div class="actions" style="margin-top:12px;">
+          <button id="memberImportPreviewBtn" class="primary" onclick="previewMemberImport()">Preview Import</button>
+        </div>
+
+        <div id="memberImportPreview" style="margin-top:16px;"></div>
+      </div>
+
+      <div class="card">
+        <h2>Import History</h2>
+        <button class="secondary" onclick="loadMemberImportHistory()">Refresh</button>
+        <div id="memberImportHistory" style="margin-top:14px;"></div>
+      </div>
+    </section>
+
+    <section id="panel-profileprogress" class="panel super-only">
+      <div class="card">
+        <h2>Member Profile Progress</h2>
+        <div id="profileProgressSummary" class="grid"></div>
+      </div>
+
+      <div class="card">
+        <div class="actions">
+          <button class="secondary" onclick="loadProfileProgress()">Refresh</button>
+          <button class="secondary" onclick="printProfileProgress()">Print</button>
+          <button class="secondary" onclick="downloadProfileProgressCsv()">Download CSV</button>
+        </div>
+        <div id="profileProgressTable" style="margin-top:14px;"></div>
+      </div>
+
+      <div id="profileProgressDetail" class="card" style="display:none;"></div>
     </section>
 
     <section id="panel-admins" class="panel super-only">
@@ -422,7 +469,12 @@ function actionLabel(action) {
     superAdminListMemberUpdateRequests:'Member requests load हुँदैछ...',
     superAdminReviewMemberUpdateRequest:'Final approval process हुँदैछ...',
     superAdminGetDataAudit:'Data audit load हुँदैछ...',
-    superAdminGetSecurityEvents:'Security events load हुँदैछ...'
+    superAdminGetSecurityEvents:'Security events load हुँदैछ...',
+    superAdminPreviewMemberImport:'Member import preview हुँदैछ...',
+    superAdminCommitMemberImport:'Member import save हुँदैछ...',
+    superAdminGetMemberImportHistory:'Import history load हुँदैछ...',
+    superAdminGetMemberProfileProgress:'Profile progress load हुँदैछ...',
+    superAdminGetMemberProfileDetail:'Member detail load हुँदैछ...'
   };
   return map[action] || 'प्रक्रिया भइरहेको छ...';
 }
@@ -588,6 +640,8 @@ function showPanel(name,btn) {
   if(name==='deleterequests' && currentUser && currentUser.role==='SUPER_ADMIN') loadDeleteRequests();
   if(name==='dataaudit' && currentUser && currentUser.role==='SUPER_ADMIN') loadDataAudit();
   if(name==='securityevents' && currentUser && currentUser.role==='SUPER_ADMIN') loadSecurityEvents();
+  if(name==='memberimport' && currentUser && currentUser.role==='SUPER_ADMIN') loadMemberImportHistory();
+  if(name==='profileprogress' && currentUser && currentUser.role==='SUPER_ADMIN') loadProfileProgress();
 }
 
 async function logout() {
@@ -1177,6 +1231,291 @@ function markPermissionDirty() {
   s.className='inline-status pending';
   s.textContent='Permission परिवर्तन गरिएको छ । Save Permissions थिच्नुहोस् ।';
 }
+
+
+let currentMemberImportPreviewId = '';
+let currentMemberImportFileName = '';
+let profileProgressCache = [];
+
+async function readMemberImportFile(file) {
+  const name = String(file && file.name || '').toLowerCase();
+  if (!file) throw new Error('Import file छान्नुहोस् ।');
+
+  if (name.endsWith('.csv')) {
+    const text = await file.text();
+    return parseCsvMatrix(text);
+  }
+
+  if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
+    if (!window.XLSX) throw new Error('XLSX reader load हुन सकेन ।');
+    const buffer = await file.arrayBuffer();
+    const wb = XLSX.read(buffer, {type:'array', cellDates:false});
+    if (!wb.SheetNames.length) throw new Error('Excel file मा sheet भेटिएन ।');
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    return XLSX.utils.sheet_to_json(ws, {header:1, raw:false, defval:''});
+  }
+
+  throw new Error('CSV, XLSX वा XLS file मात्र upload गर्नुहोस् ।');
+}
+
+function parseCsvMatrix(text) {
+  const rows=[];
+  let row=[], field='', inQuotes=false;
+
+  for(let i=0;i<text.length;i++) {
+    const ch=text[i];
+
+    if(inQuotes) {
+      if(ch==='"') {
+        if(text[i+1]==='"') { field+='"'; i++; }
+        else inQuotes=false;
+      } else field+=ch;
+    } else {
+      if(ch==='"') inQuotes=true;
+      else if(ch===',') { row.push(field); field=''; }
+      else if(ch==='\n') { row.push(field); rows.push(row); row=[]; field=''; }
+      else if(ch!=='\r') field+=ch;
+    }
+  }
+
+  row.push(field);
+  if(row.length>1 || String(row[0]||'').trim()!=='') rows.push(row);
+  return rows;
+}
+
+async function previewMemberImport() {
+  if(!currentUser || currentUser.role!=='SUPER_ADMIN') return message('यो कार्य Super Admin का लागि मात्र हो ।');
+
+  const input=document.getElementById('memberImportFile');
+  const file=input.files && input.files[0];
+  if(!file) return message('CSV वा XLSX file छान्नुहोस् ।');
+
+  try {
+    const matrix=await readMemberImportFile(file);
+
+    if(matrix.length>10000) throw new Error('Import file अत्यधिक ठूलो छ ।');
+
+    const result=await api('superAdminPreviewMemberImport',[sessionToken,file.name,matrix]);
+    currentMemberImportPreviewId=result.previewId;
+    currentMemberImportFileName=file.name;
+    renderMemberImportPreview(result);
+  } catch(e) {
+    currentMemberImportPreviewId='';
+    document.getElementById('memberImportPreview').innerHTML='<div class="notice">'+esc(e.message||e)+'</div>';
+  }
+}
+
+function renderMemberImportPreview(r) {
+  const c=r.counts||{};
+  const warnings=r.warnings||[];
+  let html='<div class="card" style="box-shadow:none;border:1px solid #dbeafe;">';
+  html+='<h2>Import Preview</h2>';
+  html+='<div class="grid">';
+  html+='<div class="stat">Total Import<b>'+esc(r.totalImported)+'</b></div>';
+  html+='<div class="stat">New<b>'+esc(c.new||0)+'</b></div>';
+  html+='<div class="stat">Updated<b>'+esc(c.updated||0)+'</b></div>';
+  html+='<div class="stat">Dropped<b>'+esc(c.dropped||0)+'</b></div>';
+  html+='<div class="stat">Reinstated<b>'+esc(c.reinstated||0)+'</b></div>';
+  html+='<div class="stat">Unchanged<b>'+esc(c.unchanged||0)+'</b></div>';
+  html+='</div>';
+
+  html+='<div style="margin-top:14px;font-size:13px;color:#64748b;line-height:1.7;">';
+  html+='Member ID Header: <b>'+esc(r.memberIdHeader)+'</b><br>';
+  html+='Lion Join Date Header: <b>'+esc(r.joinDateHeader)+'</b>';
+  html+='</div>';
+
+  if(warnings.length) {
+    html+='<div class="notice" style="margin-top:14px;">'+warnings.map(w=>esc(w)).join('<br>')+'</div>';
+  }
+
+  const s=r.samples||{};
+  html+='<div style="margin-top:14px;line-height:1.7;font-size:13px;">';
+  if((s.new||[]).length) html+='<b>New Sample:</b> '+esc((s.new||[]).join(', '))+'<br>';
+  if((s.updated||[]).length) html+='<b>Updated Sample:</b> '+esc((s.updated||[]).join(', '))+'<br>';
+  if((s.dropped||[]).length) html+='<b>Dropped Sample:</b> '+esc((s.dropped||[]).join(', '))+'<br>';
+  if((s.reinstated||[]).length) html+='<b>Reinstated Sample:</b> '+esc((s.reinstated||[]).join(', '))+'<br>';
+  html+='</div>';
+
+  html+='<div class="actions" style="margin-top:16px;">';
+  html+='<button class="primary" onclick="confirmCommitMemberImport()">Confirm & Import</button>';
+  html+='<button class="secondary" onclick="cancelMemberImportPreview()">Cancel</button>';
+  html+='</div></div>';
+
+  document.getElementById('memberImportPreview').innerHTML=html;
+}
+
+function cancelMemberImportPreview() {
+  currentMemberImportPreviewId='';
+  currentMemberImportFileName='';
+  document.getElementById('memberImportPreview').innerHTML='';
+  const input=document.getElementById('memberImportFile');
+  if(input) input.value='';
+}
+
+function confirmCommitMemberImport() {
+  if(!currentMemberImportPreviewId) return message('पहिला Import Preview गर्नुहोस् ।');
+
+  universalConfirm(
+    'Member Import Final Confirmation',
+    'File: '+currentMemberImportFileName+
+    '\n\nConfirm गरेपछि active Members sheet नयाँ Lion Portal data अनुसार rebuild हुनेछ ।'+
+    '\nLion Join Date पछिका पुराना profile records Member ID अनुसार सुरक्षित merge हुनेछन् ।'+
+    '\nImport अघि full backup पनि सुरक्षित हुनेछ ।',
+    async function(){
+      try {
+        const result=await api('superAdminCommitMemberImport',[sessionToken,currentMemberImportPreviewId]);
+        currentMemberImportPreviewId='';
+        document.getElementById('memberImportPreview').innerHTML='';
+        const input=document.getElementById('memberImportFile');
+        if(input) input.value='';
+
+        await loadMemberImportHistory();
+        message(
+          'Member Import सफल भयो ।\n\n'+
+          'Total: '+result.totalImported+
+          '\nNew: '+result.counts.new+
+          '\nUpdated: '+result.counts.updated+
+          '\nDropped: '+result.counts.dropped+
+          '\nReinstated: '+result.counts.reinstated+
+          '\nUnchanged: '+result.counts.unchanged
+        );
+      } catch(e) { message(e.message||e); }
+    }
+  );
+}
+
+async function loadMemberImportHistory() {
+  try {
+    const rows=await api('superAdminGetMemberImportHistory',[sessionToken,40]);
+    let html='<div style="overflow:auto;"><table><thead><tr>'+
+      '<th>Time</th><th>File</th><th>Total</th><th>New</th><th>Updated</th><th>Dropped</th><th>Reinstated</th><th>Unchanged</th><th>Status</th>'+
+      '</tr></thead><tbody>';
+
+    rows.forEach(r=>{
+      html+='<tr>'+
+        '<td>'+esc(r.timestamp)+'</td>'+
+        '<td>'+esc(r.fileName)+'</td>'+
+        '<td>'+esc(r.totalImported)+'</td>'+
+        '<td>'+esc(r.newCount)+'</td>'+
+        '<td>'+esc(r.updatedCount)+'</td>'+
+        '<td>'+esc(r.droppedCount)+'</td>'+
+        '<td>'+esc(r.reinstatedCount)+'</td>'+
+        '<td>'+esc(r.unchangedCount)+'</td>'+
+        '<td>'+esc(r.status)+'</td>'+
+        '</tr>';
+    });
+
+    html+='</tbody></table></div>';
+    document.getElementById('memberImportHistory').innerHTML=html;
+  } catch(e) {
+    document.getElementById('memberImportHistory').innerHTML='<div class="notice">'+esc(e.message||e)+'</div>';
+  }
+}
+
+async function loadProfileProgress() {
+  try {
+    const r=await api('superAdminGetMemberProfileProgress',[sessionToken]);
+    profileProgressCache=r.clubs||[];
+
+    const t=r.totals||{};
+    document.getElementById('profileProgressSummary').innerHTML=
+      '<div class="stat">Total Members<b>'+esc(t.totalMembers||0)+'</b></div>'+
+      '<div class="stat">Profile Updated<b>'+esc(t.profileUpdated||0)+'</b></div>'+
+      '<div class="stat">Pending<b>'+esc(t.pending||0)+'</b></div>'+
+      '<div class="stat">Photo Updated<b>'+esc(t.photoUpdated||0)+'</b></div>';
+
+    let html='<div style="overflow:auto;"><table id="profileProgressPrintable"><thead><tr>'+
+      '<th>Club</th><th>Total</th><th>Updated</th><th>Pending</th><th>Photo Updated</th><th>View</th>'+
+      '</tr></thead><tbody>';
+
+    profileProgressCache.forEach(c=>{
+      html+='<tr>'+
+        '<td>'+esc(c.clubName)+'</td>'+
+        '<td>'+esc(c.totalMembers)+'</td>'+
+        '<td>'+esc(c.profileUpdated)+'</td>'+
+        '<td>'+esc(c.pending)+'</td>'+
+        '<td>'+esc(c.photoUpdated)+'</td>'+
+        '<td class="actions">'+
+          '<button class="secondary" onclick="loadProfileProgressDetail(\''+js(c.clubName)+'\',\'UPDATED\')">Updated</button>'+
+          '<button class="secondary" onclick="loadProfileProgressDetail(\''+js(c.clubName)+'\',\'PENDING\')">Pending</button>'+
+        '</td>'+
+      '</tr>';
+    });
+
+    html+='</tbody></table></div>';
+    document.getElementById('profileProgressTable').innerHTML=html;
+  } catch(e) {
+    document.getElementById('profileProgressTable').innerHTML='<div class="notice">'+esc(e.message||e)+'</div>';
+  }
+}
+
+async function loadProfileProgressDetail(clubName,status) {
+  try {
+    const rows=await api('superAdminGetMemberProfileDetail',[sessionToken,clubName,status]);
+    const box=document.getElementById('profileProgressDetail');
+    box.style.display='block';
+
+    let html='<h2>'+esc(clubName)+' - '+esc(status)+'</h2>';
+    html+='<div class="actions"><button class="secondary" onclick="document.getElementById(\'profileProgressDetail\').style.display=\'none\'">Close</button></div>';
+    html+='<div style="overflow:auto;margin-top:12px;"><table><thead><tr>'+
+      '<th>Member ID</th><th>Name</th><th>Club</th><th>Status</th><th>Photo</th>'+
+      '</tr></thead><tbody>';
+
+    rows.forEach(r=>{
+      html+='<tr>'+
+        '<td>'+esc(r.memberId)+'</td>'+
+        '<td>'+esc(r.name)+'</td>'+
+        '<td>'+esc(r.clubName)+'</td>'+
+        '<td>'+esc(r.status)+'</td>'+
+        '<td>'+(r.photoUpdated?'Updated':'Pending')+'</td>'+
+      '</tr>';
+    });
+
+    html+='</tbody></table></div>';
+    box.innerHTML=html;
+    box.scrollIntoView({behavior:'smooth',block:'start'});
+  } catch(e) { message(e.message||e); }
+}
+
+function printProfileProgress() {
+  const table=document.getElementById('profileProgressPrintable');
+  if(!table) return message('Profile Progress load गर्नुहोस् ।');
+
+  const w=window.open('','_blank');
+  w.document.write(
+    '<html><head><title>Member Profile Progress</title>'+
+    '<style>body{font-family:Arial;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #999;padding:7px;font-size:12px}th{background:#eee}</style>'+
+    '</head><body><h2>Member Profile Progress</h2>'+table.outerHTML+'</body></html>'
+  );
+  w.document.close();
+  w.focus();
+  w.print();
+}
+
+function downloadProfileProgressCsv() {
+  if(!profileProgressCache.length) return message('Profile Progress load गर्नुहोस् ।');
+
+  const rows=[['Club Name','Total Members','Profile Updated','Pending','Photo Updated']];
+  profileProgressCache.forEach(c=>rows.push([
+    c.clubName,c.totalMembers,c.profileUpdated,c.pending,c.photoUpdated
+  ]));
+
+  const csv=rows.map(r=>r.map(v=>{
+    const s=String(v==null?'':v).replace(/"/g,'""');
+    return '"'+s+'"';
+  }).join(',')).join('\r\n');
+
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download='Member_Profile_Progress.csv';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 
 function esc(v) { return String(v==null?'':v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function escAttr(v) { return esc(v).replace(/'/g,'&#39;'); }
