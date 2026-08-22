@@ -681,6 +681,42 @@
         <div id="securityGrantStatus" class="inline-status"></div>
       </div>
 
+
+      <div class="card">
+        <h2>Super Admin Account</h2>
+        <p style="color:#64748b;line-height:1.6;">
+          Sheet manually edit नगरी यहाँबाट Super Admin Username परिवर्तन गर्न सकिन्छ ।
+          सुरक्षा कारण Current Password र Fresh Security OTP verification दुवै आवश्यक छन् ।
+        </p>
+
+        <div class="grid">
+          <div>
+            <label>Current Username</label>
+            <input id="currentSuperUsername" readonly>
+          </div>
+          <div>
+            <label>New Username</label>
+            <input id="newSuperUsername" autocomplete="off">
+          </div>
+          <div>
+            <label>Current Password</label>
+            <input id="usernameCurrentPassword" type="password" autocomplete="current-password">
+          </div>
+        </div>
+
+        <button class="primary" style="margin-top:12px;" onclick="changeSuperAdminUsername()">Change Username</button>
+      </div>
+
+      <div class="card">
+        <h2>Trusted Devices</h2>
+        <p style="color:#64748b;line-height:1.6;">
+          नयाँ browser/device मा Super Admin Login गर्दा OTP आवश्यक हुन्छ ।
+          यहाँबाट trusted device revoke गरेपछि त्यस device मा अर्को login मा फेरि OTP मागिन्छ ।
+        </p>
+        <button class="secondary" onclick="loadTrustedDevices()">Refresh</button>
+        <div id="trustedDevicesTable" style="margin-top:14px;"></div>
+      </div>
+
       <div class="card">
         <h2>Session Control</h2>
         <p style="color:#64748b;line-height:1.6;">
@@ -808,6 +844,19 @@
   </div>
 </div>
 
+
+<div id="deviceOtpBox" class="msg">
+  <div class="msg-card" style="max-width:470px;">
+    <button class="msg-close-x" type="button" onclick="closeDeviceOtp()" aria-label="Close">✕</button>
+    <h3 style="color:#0f4c81;margin-top:0;">New Device Verification</h3>
+    <p id="deviceOtpInfo" style="line-height:1.7;color:#475569;"></p>
+    <label style="text-align:left;">OTP</label>
+    <input id="deviceOtpInput" inputmode="numeric" maxlength="6" placeholder="6-digit OTP">
+    <button id="deviceOtpVerifyBtn" class="primary" style="width:100%;margin-top:12px;" onclick="verifyDeviceLoginOtp()">Verify & Login</button>
+    <button class="secondary" style="width:100%;margin-top:9px;" onclick="closeDeviceOtp()">Cancel</button>
+  </div>
+</div>
+
 <div id="confirmBox" class="msg">
   <div class="msg-card">
     <button class="msg-close-x" type="button" onclick="cancelConfirm()" aria-label="Close">✕</button>
@@ -903,7 +952,11 @@ function actionLabel(action) {
     superAdminLogoutAllSessions:'सबै sessions revoke हुँदैछन्...',
     adminGetSecurityStatus:'Security status load हुँदैछ...',
     superAdminRunSystemDiagnostics:'Full system check हुँदैछ...',
-    superAdminGetFinalSystemSummary:'System summary load हुँदैछ...'
+    superAdminGetFinalSystemSummary:'System summary load हुँदैछ...',
+    verifySuperAdminDeviceOtp:'New device OTP verify हुँदैछ...',
+    superAdminChangeUsername:'Username परिवर्तन हुँदैछ...',
+    superAdminListTrustedDevices:'Trusted devices load हुँदैछन्...',
+    superAdminRevokeTrustedDevice:'Trusted device revoke हुँदैछ...'
   };
   return map[action] || 'प्रक्रिया भइरहेको छ...';
 }
@@ -979,21 +1032,80 @@ function setLoading(btn,on,text) {
   }
 }
 
+let pendingDeviceChallenge = '';
+
+function getLksDeviceId() {
+  let id=localStorage.getItem('lks_device_id');
+  if(!id) {
+    if(window.crypto && crypto.randomUUID) id=crypto.randomUUID();
+    else id='dev-'+Date.now()+'-'+Math.random().toString(36).slice(2);
+    localStorage.setItem('lks_device_id',id);
+  }
+  return id;
+}
+
 async function login() {
   const u=document.getElementById('loginUser').value.trim();
   const p=document.getElementById('loginPass').value;
   if(!u||!p) return message('Username र Password दुवै आवश्यक छ ।');
+
   const btn=document.getElementById('loginBtn');
   setLoading(btn,true,'Login हुँदैछ...');
+
   try {
-    const device=[navigator.userAgent,screen.width+'x'+screen.height].join(' | ');
+    const device={
+      deviceId:getLksDeviceId(),
+      userAgent:navigator.userAgent||'',
+      screen:(screen.width||0)+'x'+(screen.height||0),
+      platform:navigator.platform||''
+    };
+
     const res=await api('adminLogin',[u,p,device]);
+
+    if(res && res.otpRequired) {
+      pendingDeviceChallenge=res.challengeToken||'';
+      document.getElementById('deviceOtpInput').value='';
+      document.getElementById('deviceOtpInfo').textContent=
+        'नयाँ device/browser पहिचान भएको छ । OTP '+(res.emailMasked||'registered email')+' मा पठाइएको छ ।';
+      document.getElementById('deviceOtpBox').style.display='flex';
+      return;
+    }
+
     sessionToken=res.token;
     sessionStorage.setItem('lks_admin_token',sessionToken);
     currentUser=res.user; currentModules=res.modules||[];
     openApp();
-  } catch(e) { message(e.message||e); }
-  finally { setLoading(btn,false); }
+  } catch(e) {
+    message(e.message||e);
+  } finally {
+    setLoading(btn,false);
+  }
+}
+
+function closeDeviceOtp() {
+  pendingDeviceChallenge='';
+  const box=document.getElementById('deviceOtpBox');
+  if(box) box.style.display='none';
+}
+
+async function verifyDeviceLoginOtp() {
+  const otp=document.getElementById('deviceOtpInput').value.trim();
+  if(!pendingDeviceChallenge) return message('Login verification session छैन । फेरि Login गर्नुहोस् ।');
+  if(!otp) return message('OTP लेख्नुहोस् ।');
+
+  try {
+    const res=await api('verifySuperAdminDeviceOtp',[pendingDeviceChallenge,otp]);
+    pendingDeviceChallenge='';
+    document.getElementById('deviceOtpBox').style.display='none';
+
+    sessionToken=res.token;
+    sessionStorage.setItem('lks_admin_token',sessionToken);
+    currentUser=res.user;
+    currentModules=res.modules||[];
+    openApp();
+  } catch(e) {
+    message(e.message||e);
+  }
 }
 
 async function restoreSession() {
@@ -2554,6 +2666,10 @@ async function loadSecurityCenter() {
       '<div class="stat">Role<b>'+esc(r.role)+'</b></div>'+
       '<div class="stat">Idle Auto Logout<b>'+esc(r.idleLimitMinutes)+' min</b></div>'+
       '<div class="stat">Security Grant<b>'+esc(r.sensitiveGrantMinutes)+' min</b></div>';
+
+    const cu=document.getElementById('currentSuperUsername');
+    if(cu && currentUser) cu.value=currentUser.username||'';
+    await loadTrustedDevices();
   } catch(e) {
     document.getElementById('securityStatusBox').innerHTML='<div class="notice">'+esc(e.message||e)+'</div>';
   }
@@ -2739,6 +2855,7 @@ function closeMobileSidebar() {
 function closeTopVisibleModal() {
   const confirmBox=document.getElementById('confirmBox');
   const forgotBox=document.getElementById('forgotPasswordBox');
+  const deviceOtpBox=document.getElementById('deviceOtpBox');
   const msg=document.getElementById('msg');
 
   if(confirmBox && getComputedStyle(confirmBox).display!=='none') {
@@ -2747,6 +2864,10 @@ function closeTopVisibleModal() {
   }
   if(forgotBox && getComputedStyle(forgotBox).display!=='none') {
     closeForgotPassword();
+    return true;
+  }
+  if(deviceOtpBox && getComputedStyle(deviceOtpBox).display!=='none') {
+    closeDeviceOtp();
     return true;
   }
   if(msg && getComputedStyle(msg).display!=='none') {
@@ -2763,13 +2884,14 @@ document.addEventListener('keydown', function(e) {
   }
 });
 
-['msg','confirmBox','forgotPasswordBox'].forEach(function(id){
+['msg','confirmBox','forgotPasswordBox','deviceOtpBox'].forEach(function(id){
   const el=document.getElementById(id);
   if(!el) return;
   el.addEventListener('click', function(e){
     if(e.target!==el) return;
     if(id==='confirmBox') cancelConfirm();
     else if(id==='forgotPasswordBox') closeForgotPassword();
+    else if(id==='deviceOtpBox') closeDeviceOtp();
     else closeMsg();
   });
 });
@@ -2785,6 +2907,86 @@ document.addEventListener('click', function(e){
 window.addEventListener('resize', function(){
   if(window.innerWidth>820) closeMobileSidebar();
 });
+
+
+
+async function loadTrustedDevices() {
+  if(!currentUser || currentUser.role!=='SUPER_ADMIN') return;
+
+  try {
+    const rows=await api('superAdminListTrustedDevices',[sessionToken]);
+    let html='<div style="overflow:auto;"><table><thead><tr>'+
+      '<th>Device</th><th>Created</th><th>Last Used</th><th>Status</th><th>Action</th>'+
+      '</tr></thead><tbody>';
+
+    (rows||[]).forEach(r=>{
+      html+='<tr>'+
+        '<td>'+esc(r.deviceLabel||'Unknown device')+'</td>'+
+        '<td>'+esc(r.createdAt||'')+'</td>'+
+        '<td>'+esc(r.lastUsedAt||'')+'</td>'+
+        '<td>'+esc(r.status||'')+'</td>'+
+        '<td>';
+      if(String(r.status||'').toUpperCase()==='ACTIVE') {
+        html+='<button class="danger" onclick="revokeTrustedDevice(\''+js(r.deviceHash)+'\')">Revoke</button>';
+      }
+      html+='</td></tr>';
+    });
+
+    html+='</tbody></table></div>';
+    if(!(rows||[]).length) html='<div class="notice">अहिलेसम्म trusted device record छैन ।</div>';
+
+    document.getElementById('trustedDevicesTable').innerHTML=html;
+  } catch(e) {
+    const box=document.getElementById('trustedDevicesTable');
+    if(box) box.innerHTML='<div class="notice">'+esc(e.message||e)+'</div>';
+  }
+}
+
+function revokeTrustedDevice(deviceHash) {
+  universalConfirm(
+    'Trusted Device Revoke',
+    'यो device revoke गर्ने हो ? अर्को login मा Super Admin OTP verification फेरि आवश्यक हुनेछ ।',
+    async function(){
+      try {
+        await api('superAdminRevokeTrustedDevice',[sessionToken,deviceHash]);
+        await loadTrustedDevices();
+        message('Trusted device revoke भयो ।');
+      } catch(e) { message(e.message||e); }
+    }
+  );
+}
+
+function changeSuperAdminUsername() {
+  const newUsername=document.getElementById('newSuperUsername').value.trim();
+  const password=document.getElementById('usernameCurrentPassword').value;
+
+  if(!newUsername) return message('नयाँ Username लेख्नुहोस् ।');
+  if(!password) return message('Current Password लेख्नुहोस् ।');
+
+  requireFreshSecurity('Super Admin Username Change', function(){
+    universalConfirm(
+      'Super Admin Username Change',
+      'Current Username: '+(currentUser.username||'')+
+      '\nNew Username: '+newUsername+
+      '\n\nUsername परिवर्तन भएपछि सबै active sessions revoke हुन्छन् र नयाँ Username बाट फेरि Login गर्नुपर्छ ।',
+      async function(){
+        try {
+          const r=await api('superAdminChangeUsername',[
+            sessionToken,
+            newUsername,
+            password,
+            sensitiveGrantToken
+          ]);
+
+          document.getElementById('usernameCurrentPassword').value='';
+          sessionStorage.removeItem('lks_admin_token');
+          message('Username सफलतापूर्वक परिवर्तन भयो । नयाँ Username: '+r.newUsername+' । अब फेरि Login गर्नुहोस् ।');
+          setTimeout(()=>location.reload(),2200);
+        } catch(e) { message(e.message||e); }
+      }
+    );
+  });
+}
 
 
 function esc(v) { return String(v==null?'':v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
