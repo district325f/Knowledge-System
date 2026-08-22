@@ -6,23 +6,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Lions Knowledge System</title>
 
-  <!-- ============================================================
-       GITHUB COMPATIBILITY LAYER (ADDITIVE ONLY)
-       Existing UI/functions below are unchanged.
-       Replace the URL once with your deployed Apps Script /exec URL.
-  ============================================================= -->
   <script>
     const APPS_SCRIPT_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyHthx2b4rGjoAMKma2eMZHC_fWET1AVjSyrNRb-OudFOzEDvJ2xGtYLvqV4iCifDw0_Q/exec";
 
     (function installAppsScriptBridge(){
-      // When this file is opened inside Apps Script, keep the native google.script.run.
       if (window.google && window.google.script && window.google.script.run) return;
 
       async function callAppsScript_(action, args) {
-        if (!APPS_SCRIPT_WEB_APP_URL || APPS_SCRIPT_WEB_APP_URL.indexOf('PASTE_YOUR_') === 0) {
-          throw new Error('Apps Script Web App URL राखिएको छैन । index.html को APPS_SCRIPT_WEB_APP_URL मा /exec URL राख्नुहोस् ।');
-        }
-
         const response = await fetch(APPS_SCRIPT_WEB_APP_URL, {
           method: 'POST',
           body: JSON.stringify({ action: action, args: Array.isArray(args) ? args : [] }),
@@ -35,7 +25,7 @@
         try {
           data = JSON.parse(text);
         } catch (e) {
-          throw new Error('Backend response JSON मा आएन । Deployment access र Web App URL जाँच गर्नुहोस् ।');
+          throw new Error('Backend connection response प्राप्त हुन सकेन ।');
         }
 
         if (!data || data.ok !== true) {
