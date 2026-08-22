@@ -139,6 +139,7 @@
     <button class="nav-btn super-only" data-panel="approvals" onclick="showPanel('approvals',this)">🛡 Approval Settings</button>
     <button class="nav-btn super-only" data-panel="dataaudit" onclick="showPanel('dataaudit',this)">🔎 Data Change Audit</button>
     <button class="nav-btn super-only" data-panel="securitycenter" onclick="showPanel('securitycenter',this)">🛡 Security Center</button>
+    <button class="nav-btn super-only" data-panel="finalcheck" onclick="showPanel('finalcheck',this)">✅ Final System Check</button>
     <button class="nav-btn super-only" data-panel="securityevents" onclick="showPanel('securityevents',this)">🔐 Security Events</button>
     <button class="nav-btn super-only" data-panel="audit" onclick="showPanel('audit',this)">📜 System Audit Log</button>
     <button class="nav-btn" data-panel="password" onclick="showPanel('password',this)">🔐 Change Password</button>
@@ -493,6 +494,45 @@
       </div>
     </section>
 
+
+    <section id="panel-finalcheck" class="panel super-only">
+      <div class="card">
+        <h2>Final System Check</h2>
+        <p style="color:#64748b;line-height:1.7;">
+          यो diagnostic read-only हो । कुनै business data परिवर्तन गर्दैन ।
+          Final deployment अघि required sheets, member headers, duplicate IDs, admin foundation र approval settings जाँच गर्न प्रयोग गर्नुहोस् ।
+        </p>
+        <div class="actions">
+          <button class="primary" onclick="runFinalDiagnostics()">Run Full Check</button>
+          <button class="secondary" onclick="loadFinalSystemSummary()">System Summary</button>
+          <button class="secondary" onclick="printFinalDiagnostics()">Print</button>
+        </div>
+
+        <div id="finalDiagnosticSummary" class="grid" style="margin-top:16px;"></div>
+        <div id="finalDiagnosticTable" style="margin-top:16px;"></div>
+      </div>
+
+      <div class="card">
+        <h2>Final Go-Live Checklist</h2>
+        <div style="line-height:1.9;">
+          <label><input type="checkbox" style="width:auto;"> Apps Script latest version deployed</label>
+          <label><input type="checkbox" style="width:auto;"> GitHub index.html updated</label>
+          <label><input type="checkbox" style="width:auto;"> GitHub admin.html updated</label>
+          <label><input type="checkbox" style="width:auto;"> Super Admin login tested</label>
+          <label><input type="checkbox" style="width:auto;"> Forgot Password OTP tested</label>
+          <label><input type="checkbox" style="width:auto;"> Member Search tested</label>
+          <label><input type="checkbox" style="width:auto;"> Member Self-Service OTP tested</label>
+          <label><input type="checkbox" style="width:auto;"> Photo Update OTP + Gemini tested</label>
+          <label><input type="checkbox" style="width:auto;"> Quiz + unique Top 10 tested</label>
+          <label><input type="checkbox" style="width:auto;"> Admin permissions tested</label>
+          <label><input type="checkbox" style="width:auto;"> Delete approval tested</label>
+          <label><input type="checkbox" style="width:auto;"> Member monthly import preview tested</label>
+          <label><input type="checkbox" style="width:auto;"> Rollback preview tested</label>
+          <label><input type="checkbox" style="width:auto;"> Reporting Center tested</label>
+        </div>
+      </div>
+    </section>
+
     <section id="panel-securityevents" class="panel super-only">
       <div class="card">
         <h2>Security Events</h2>
@@ -663,7 +703,9 @@ function actionLabel(action) {
     superAdminRequestSensitiveOtp:'Security OTP पठाइँदैछ...',
     superAdminVerifySensitiveOtp:'Security OTP verify हुँदैछ...',
     superAdminLogoutAllSessions:'सबै sessions revoke हुँदैछन्...',
-    adminGetSecurityStatus:'Security status load हुँदैछ...'
+    adminGetSecurityStatus:'Security status load हुँदैछ...',
+    superAdminRunSystemDiagnostics:'Full system check हुँदैछ...',
+    superAdminGetFinalSystemSummary:'System summary load हुँदैछ...'
   };
   return map[action] || 'प्रक्रिया भइरहेको छ...';
 }
@@ -843,6 +885,7 @@ function showPanel(name,btn) {
   if(name==='memberrollback' && currentUser && currentUser.role==='SUPER_ADMIN') loadMemberImportBackups();
   if(name==='reports' && currentUser && currentUser.role==='SUPER_ADMIN') loadReportingCenter();
   if(name==='securitycenter' && currentUser && currentUser.role==='SUPER_ADMIN') loadSecurityCenter();
+  if(name==='finalcheck' && currentUser && currentUser.role==='SUPER_ADMIN') runFinalDiagnostics();
 }
 
 async function logout() {
@@ -2397,6 +2440,80 @@ function startInactivityWatch() {
       setTimeout(()=>location.reload(),1800);
     }
   },30000);
+}
+
+
+
+let finalDiagnosticsCache = null;
+
+async function runFinalDiagnostics() {
+  try {
+    const r=await api('superAdminRunSystemDiagnostics',[sessionToken]);
+    finalDiagnosticsCache=r;
+
+    document.getElementById('finalDiagnosticSummary').innerHTML=
+      '<div class="stat">Overall<b>'+esc(r.overallStatus)+'</b></div>'+
+      '<div class="stat">Pass<b>'+esc(r.passCount)+'</b></div>'+
+      '<div class="stat">Fail<b>'+esc(r.failCount)+'</b></div>'+
+      '<div class="stat">Info<b>'+esc(r.infoCount)+'</b></div>';
+
+    let html='<div style="overflow:auto;"><table id="finalDiagnosticPrintable"><thead><tr>'+
+      '<th>Check</th><th>Status</th><th>Detail</th>'+
+      '</tr></thead><tbody>';
+
+    (r.checks||[]).forEach(c=>{
+      html+='<tr>'+
+        '<td>'+esc(c.name)+'</td>'+
+        '<td><b>'+esc(c.status)+'</b></td>'+
+        '<td>'+esc(c.detail)+'</td>'+
+        '</tr>';
+    });
+
+    html+='</tbody></table></div>';
+    document.getElementById('finalDiagnosticTable').innerHTML=html;
+  } catch(e) {
+    document.getElementById('finalDiagnosticTable').innerHTML='<div class="notice">'+esc(e.message||e)+'</div>';
+  }
+}
+
+async function loadFinalSystemSummary() {
+  try {
+    const r=await api('superAdminGetFinalSystemSummary',[sessionToken]);
+    const c=r.counts||{};
+    document.getElementById('msgText').innerHTML=
+      '<div style="text-align:left;line-height:1.8;">'+
+      '<b>'+esc(r.systemName)+'</b><br><br>'+
+      'Members: '+esc(c.members||0)+'<br>'+
+      'Quiz Attempts: '+esc(c.quizAttempts||0)+'<br>'+
+      'Admin Accounts: '+esc(c.adminAccounts||0)+'<br>'+
+      'Member Requests: '+esc(c.memberRequests||0)+'<br>'+
+      'Member Imports: '+esc(c.memberImports||0)+'<br><br>'+
+      '<b>Modules</b><br>'+
+      (r.modules||[]).map(m=>'• '+esc(m)).join('<br>')+
+      '</div>';
+    document.getElementById('msg').style.display='flex';
+  } catch(e) { message(e.message||e); }
+}
+
+function printFinalDiagnostics() {
+  if(!finalDiagnosticsCache) return message('पहिला Run Full Check गर्नुहोस् ।');
+
+  const table=document.getElementById('finalDiagnosticPrintable');
+  if(!table) return message('Diagnostic result भेटिएन ।');
+
+  const w=window.open('','_blank');
+  w.document.write(
+    '<html><head><title>Lions Knowledge System - Final Diagnostic</title>'+
+    '<style>body{font-family:Arial;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #999;padding:7px;font-size:12px}th{background:#eee}</style>'+
+    '</head><body>'+
+    '<h2>Lions Knowledge System - Final Diagnostic</h2>'+
+    '<p>Overall: <b>'+esc(finalDiagnosticsCache.overallStatus)+'</b></p>'+
+    table.outerHTML+
+    '</body></html>'
+  );
+  w.document.close();
+  w.focus();
+  w.print();
 }
 
 
