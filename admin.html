@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="ne">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lions Knowledge System - Admin</title>
+  <style>
+    * { box-sizing:border-box; }
+    html,body { margin:0; min-height:100%; font-family:Arial,sans-serif; background:#f1f5f9; color:#1f2937; }
+    body { -webkit-user-select:none; user-select:none; }
+    input,select,textarea { -webkit-user-select:auto; user-select:auto; }
+    a { color:inherit; }
+    .shell { min-height:100vh; display:flex; }
+    .side { width:260px; background:linear-gradient(180deg,#0f2f7a,#1739ba,#3f1bd8); color:#fff; padding:22px 16px; position:fixed; inset:0 auto 0 0; overflow:auto; }
+    .brand { text-align:center; margin-bottom:20px; }
+    .brand h1 { font-size:21px; margin:10px 0 4px; }
+    .brand p { margin:0; color:#dbeafe; font-size:13px; }
+    .nav-btn { width:100%; border:none; background:rgba(255,255,255,.08); color:#fff; padding:12px 13px; border-radius:12px; margin:5px 0; text-align:left; font-weight:800; cursor:pointer; }
+    .nav-btn:hover,.nav-btn.active { background:#fff; color:#1739ba; }
+    .main { margin-left:260px; width:calc(100% - 260px); padding:24px; }
+    .topbar { display:flex; align-items:center; justify-content:space-between; gap:12px; background:#fff; padding:14px 18px; border-radius:18px; box-shadow:0 8px 22px rgba(15,76,129,.08); margin-bottom:18px; }
+    .badge { padding:8px 12px; border-radius:999px; background:#eef4ff; color:#0f4c81; font-weight:800; font-size:13px; }
+    .panel { display:none; }
+    .panel.active { display:block; }
+    .card { background:#fff; border-radius:18px; padding:18px; box-shadow:0 8px 22px rgba(15,76,129,.08); margin-bottom:16px; }
+    .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+    .stat { background:linear-gradient(135deg,#eef4ff,#fff); border:1px solid #dbeafe; border-radius:16px; padding:16px; }
+    .stat b { display:block; font-size:25px; color:#1739ba; margin-top:6px; }
+    h2 { color:#0f4c81; margin:0 0 14px; }
+    label { display:block; font-weight:800; margin:10px 0 6px; }
+    input,select { width:100%; padding:12px; border:1px solid #cbd5e1; border-radius:11px; font-size:15px; }
+    button.primary,button.secondary,button.danger { border:none; border-radius:11px; padding:11px 14px; font-weight:800; cursor:pointer; }
+    button.primary { background:linear-gradient(135deg,#1a73e8,#0f4c81); color:#fff; }
+    button.secondary { background:#e2e8f0; color:#334155; }
+    button.danger { background:#dc2626; color:#fff; }
+    table { width:100%; border-collapse:collapse; }
+    th,td { border-bottom:1px solid #e5e7eb; padding:10px 8px; text-align:left; font-size:14px; }
+    th { background:#f8fafc; color:#0f4c81; }
+    .actions { display:flex; gap:6px; flex-wrap:wrap; }
+    .check-grid { display:grid; grid-template-columns:1.5fr repeat(6,1fr); gap:6px; align-items:center; }
+    .check-head,.check-cell { padding:9px 7px; border-bottom:1px solid #e5e7eb; font-size:13px; }
+    .check-head { font-weight:900; color:#0f4c81; background:#f8fafc; }
+    .check-cell input { width:auto; }
+    .notice { background:#fff7ed; border:1px solid #fed7aa; color:#9a3412; padding:12px; border-radius:12px; line-height:1.6; }
+    .login-wrap { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:18px; background:linear-gradient(135deg,#eef4ff,#f8fbff); }
+    .login-card { width:min(94%,430px); background:#fff; border-radius:24px; padding:26px; box-shadow:0 18px 46px rgba(15,76,129,.16); }
+    .login-card h1 { text-align:center; color:#1739ba; margin:0 0 8px; }
+    .login-card p { text-align:center; color:#64748b; line-height:1.6; }
+    .login-card button { width:100%; margin-top:14px; }
+    .spinner { width:17px;height:17px;border:3px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;display:inline-block;animation:spin .8s linear infinite;vertical-align:middle;margin-right:7px; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .msg { position:fixed; inset:0; background:rgba(15,23,42,.5); display:none; align-items:center; justify-content:center; z-index:9999; padding:18px; }
+    .msg-card { width:min(92%,440px); background:#fff; padding:22px; border-radius:18px; text-align:center; box-shadow:0 20px 50px rgba(0,0,0,.2); }
+    .msg-card p { line-height:1.7; white-space:pre-wrap; }
+    .temp-pass { font-size:20px; font-weight:900; color:#1739ba; background:#eef4ff; padding:12px; border-radius:12px; user-select:text; }
+    @media(max-width:860px) {
+      .side { position:static; width:100%; }
+      .shell { display:block; }
+      .main { margin-left:0; width:100%; padding:12px; }
+      .grid { grid-template-columns:1fr; }
+      .check-grid { grid-template-columns:1.4fr repeat(3,1fr); overflow:auto; }
+      .hide-mobile { display:none; }
+    }
+  </style>
+</head>
+<body>
+<div id="loginScreen" class="login-wrap">
+  <div class="login-card">
+    <h1>Lions Knowledge System</h1>
+    <p>Admin / Super Admin Login</p>
+    <label>Username / Email</label>
+    <input id="loginUser" autocomplete="username">
+    <label>Password</label>
+    <input id="loginPass" type="password" autocomplete="current-password">
+    <button id="loginBtn" class="primary" onclick="login()">Login</button>
+    <p style="margin-top:16px;"><a href="index.html" style="color:#0f4c81;text-decoration:none;font-weight:800;">← Public System</a></p>
+  </div>
+</div>
+
+<div id="appScreen" class="shell" style="display:none;">
+  <aside class="side">
+    <div class="brand">
+      <div style="font-size:42px;">🦁</div>
+      <h1>Lions Knowledge System</h1>
+      <p id="sideRole">Admin Portal</p>
+    </div>
+    <button class="nav-btn active" data-panel="dashboard" onclick="showPanel('dashboard',this)">🏠 Dashboard</button>
+    <button class="nav-btn super-only" data-panel="admins" onclick="showPanel('admins',this)">👥 Admin Management</button>
+    <button class="nav-btn super-only" data-panel="permissions" onclick="showPanel('permissions',this)">✅ Permissions</button>
+    <button class="nav-btn super-only" data-panel="approvals" onclick="showPanel('approvals',this)">🛡 Approval Settings</button>
+    <button class="nav-btn super-only" data-panel="audit" onclick="showPanel('audit',this)">📜 Audit Log</button>
+    <button class="nav-btn" data-panel="password" onclick="showPanel('password',this)">🔐 Change Password</button>
+    <button class="nav-btn" onclick="logout()">🚪 Logout</button>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <b id="welcomeName">Admin</b>
+        <div style="font-size:13px;color:#64748b;" id="welcomeUser"></div>
+      </div>
+      <span class="badge" id="roleBadge">ADMIN</span>
+    </div>
+
+    <section id="panel-dashboard" class="panel active">
+      <div class="card">
+        <h2>Dashboard</h2>
+        <div class="grid">
+          <div class="stat">Role<b id="statRole">-</b></div>
+          <div class="stat">Allowed Modules<b id="statModules">0</b></div>
+          <div class="stat super-only">Admin Accounts<b id="statAdmins">0</b></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Available Modules</h2>
+        <div id="moduleCards" class="grid"></div>
+      </div>
+      <div class="notice">
+        Admin लाई full database export/download उपलब्ध छैन । Data access server-side permission अनुसार मात्र हुन्छ ।
+      </div>
+    </section>
+
+    <section id="panel-admins" class="panel super-only">
+      <div class="card">
+        <h2>Create Admin</h2>
+        <div class="grid">
+          <div><label>Username</label><input id="newAdminUsername"></div>
+          <div><label>Display Name</label><input id="newAdminName"></div>
+          <div><label>Email</label><input id="newAdminEmail" type="email"></div>
+        </div>
+        <button class="primary" style="margin-top:12px;" onclick="createAdmin()">Create Admin</button>
+      </div>
+      <div class="card">
+        <h2>Admin Accounts</h2>
+        <div style="overflow:auto;"><table>
+          <thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Status</th><th>Last Login</th><th>Action</th></tr></thead>
+          <tbody id="adminsTable"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <section id="panel-permissions" class="panel super-only">
+      <div class="card">
+        <h2>Admin Permission Matrix</h2>
+        <label>Admin छान्नुहोस्</label>
+        <select id="permAdminSelect" onchange="loadPermissions()"><option value="">-- Select Admin --</option></select>
+        <div id="permGrid" style="margin-top:14px;"></div>
+        <button id="savePermBtn" class="primary" style="margin-top:14px;display:none;" onclick="savePermissions()">Save Permissions</button>
+      </div>
+    </section>
+
+    <section id="panel-approvals" class="panel super-only">
+      <div class="card">
+        <h2>Approval Settings</h2>
+        <p style="color:#64748b;">ON हुँदा Admin approval पछि Super Admin final approval आवश्यक हुन्छ ।</p>
+        <div id="approvalSettings"></div>
+        <button class="primary" style="margin-top:14px;" onclick="saveApprovalSettings()">Save Settings</button>
+      </div>
+    </section>
+
+    <section id="panel-audit" class="panel super-only">
+      <div class="card">
+        <h2>Audit Log</h2>
+        <button class="secondary" onclick="loadAudit()">Refresh</button>
+        <div style="overflow:auto;margin-top:12px;"><table>
+          <thead><tr><th>Time</th><th>User</th><th>Action</th><th>Module</th><th>Result</th><th>Details</th></tr></thead>
+          <tbody id="auditTable"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <section id="panel-password" class="panel">
+      <div class="card" style="max-width:600px;">
+        <h2>Change Password</h2>
+        <label>Current Password</label><input id="oldPass" type="password">
+        <label>New Password</label><input id="newPass" type="password">
+        <label>Confirm New Password</label><input id="confirmPass" type="password">
+        <button class="primary" style="margin-top:14px;" onclick="changePassword()">Update Password</button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="msg" class="msg"><div class="msg-card"><p id="msgText"></p><button class="primary" onclick="closeMsg()">OK</button></div></div>
+
+<script>
+const API_URL = "https://script.google.com/macros/s/AKfycbyHthx2b4rGjoAMKma2eMZHC_fWET1AVjSyrNRb-OudFOzEDvJ2xGtYLvqV4iCifDw0_Q/exec";
+let sessionToken = sessionStorage.getItem('lks_admin_token') || '';
+let currentUser = null;
+let currentModules = [];
+let adminRowsCache = [];
+let approvalCache = [];
+
+document.addEventListener('copy', function(e) {
+  if (!e.target.closest('input,textarea,.temp-pass')) e.preventDefault();
+});
+document.addEventListener('cut', function(e) {
+  if (!e.target.closest('input,textarea')) e.preventDefault();
+});
+document.addEventListener('contextmenu', function(e) {
+  if (!e.target.closest('input,textarea')) e.preventDefault();
+});
+
+function api(action,args) {
+  return fetch(API_URL, {
+    method:'POST',
+    body:JSON.stringify({action:action,args:Array.isArray(args)?args:[]}),
+    redirect:'follow',
+    cache:'no-store'
+  }).then(r=>r.text()).then(t=>{
+    let d;
+    try { d=JSON.parse(t); } catch(e) { throw new Error('Backend response प्राप्त हुन सकेन ।'); }
+    if (!d || d.ok!==true) throw new Error(d && d.error ? d.error : 'Request असफल भयो ।');
+    return d.result;
+  });
+}
+
+function message(text) {
+  document.getElementById('msgText').textContent=String(text||'');
+  document.getElementById('msg').style.display='flex';
+}
+function closeMsg() { document.getElementById('msg').style.display='none'; }
+
+function setLoading(btn,on,text) {
+  if(!btn) return;
+  if(on) {
+    btn.disabled=true; btn.dataset.old=btn.innerHTML;
+    btn.innerHTML='<span class="spinner"></span>'+text;
+  } else {
+    btn.disabled=false; btn.innerHTML=btn.dataset.old||'Login';
+  }
+}
+
+async function login() {
+  const u=document.getElementById('loginUser').value.trim();
+  const p=document.getElementById('loginPass').value;
+  if(!u||!p) return message('Username र Password दुवै आवश्यक छ ।');
+  const btn=document.getElementById('loginBtn');
+  setLoading(btn,true,'Login हुँदैछ...');
+  try {
+    const device=[navigator.userAgent,screen.width+'x'+screen.height].join(' | ');
+    const res=await api('adminLogin',[u,p,device]);
+    sessionToken=res.token;
+    sessionStorage.setItem('lks_admin_token',sessionToken);
+    currentUser=res.user; currentModules=res.modules||[];
+    openApp();
+  } catch(e) { message(e.message||e); }
+  finally { setLoading(btn,false); }
+}
+
+async function restoreSession() {
+  if(!sessionToken) return;
+  try {
+    const res=await api('adminGetSession',[sessionToken]);
+    currentUser=res.user; currentModules=res.modules||[];
+    openApp();
+  } catch(e) {
+    sessionToken=''; sessionStorage.removeItem('lks_admin_token');
+  }
+}
+
+async function openApp() {
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('appScreen').style.display='flex';
+  document.getElementById('welcomeName').textContent=currentUser.displayName||currentUser.username;
+  document.getElementById('welcomeUser').textContent=currentUser.username;
+  document.getElementById('roleBadge').textContent=currentUser.role;
+  document.getElementById('sideRole').textContent=currentUser.role==='SUPER_ADMIN'?'Super Admin Portal':'Admin Portal';
+  document.getElementById('statRole').textContent=currentUser.role==='SUPER_ADMIN'?'Super Admin':'Admin';
+  document.getElementById('statModules').textContent=currentModules.filter(m=>m.canView).length;
+
+  document.querySelectorAll('.super-only').forEach(el=>{
+    el.style.display=currentUser.role==='SUPER_ADMIN'?'':'none';
+  });
+
+  renderModules();
+  try {
+    const dash=await api('adminGetDashboard',[sessionToken]);
+    if(dash.adminSummary) document.getElementById('statAdmins').textContent=dash.adminSummary.totalAccounts||0;
+  } catch(e) {}
+
+  if(currentUser.role==='SUPER_ADMIN') {
+    await loadAdmins();
+    await loadApprovalSettings();
+  }
+}
+
+function renderModules() {
+  const box=document.getElementById('moduleCards');
+  const visible=currentModules.filter(m=>m.canView);
+  if(!visible.length) {
+    box.innerHTML='<div class="notice">तपाईंलाई हाल कुनै module permission दिइएको छैन ।</div>';
+    return;
+  }
+  box.innerHTML=visible.map(m=>{
+    const actions=[];
+    if(m.canAdd) actions.push('Add');
+    if(m.canEdit) actions.push('Edit');
+    if(m.canDelete) actions.push('Delete');
+    if(m.canApprove) actions.push('Approve');
+    if(m.canReinstate) actions.push('Reinstate');
+    return '<div class="stat"><div style="font-weight:900;color:#0f4c81;">'+esc(m.label||m.module)+'</div><div style="margin-top:8px;font-size:13px;color:#64748b;">'+esc(actions.join(' • ')||'View only')+'</div></div>';
+  }).join('');
+}
+
+function showPanel(name,btn) {
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  const p=document.getElementById('panel-'+name);
+  if(p) p.classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  if(name==='audit' && currentUser && currentUser.role==='SUPER_ADMIN') loadAudit();
+}
+
+async function logout() {
+  try { if(sessionToken) await api('adminLogout',[sessionToken]); } catch(e) {}
+  sessionToken=''; currentUser=null; currentModules=[];
+  sessionStorage.removeItem('lks_admin_token');
+  location.reload();
+}
+
+async function loadAdmins() {
+  if(!currentUser||currentUser.role!=='SUPER_ADMIN') return;
+  try {
+    adminRowsCache=await api('superAdminListAdmins',[sessionToken]);
+    const tb=document.getElementById('adminsTable');
+    tb.innerHTML=adminRowsCache.map(a=>{
+      const inactive=a.status==='INACTIVE';
+      return '<tr><td>'+esc(a.displayName)+'</td><td>'+esc(a.username)+'</td><td>'+esc(a.role)+'</td><td>'+esc(a.status)+'</td><td>'+esc(a.lastLoginAt||'-')+'</td><td class="actions">'+
+      (a.role==='SUPER_ADMIN'?'':'<button class="'+(inactive?'primary':'danger')+'" onclick="setAdminStatus(\''+js(a.adminId)+'\',\''+(inactive?'ACTIVE':'INACTIVE')+'\')">'+(inactive?'Activate':'Inactive')+'</button>')+
+      '</td></tr>';
+    }).join('');
+
+    const sel=document.getElementById('permAdminSelect');
+    sel.innerHTML='<option value="">-- Select Admin --</option>'+
+      adminRowsCache.filter(a=>a.role==='ADMIN').map(a=>'<option value="'+escAttr(a.adminId)+'">'+esc(a.displayName)+' ('+esc(a.username)+')</option>').join('');
+  } catch(e) { message(e.message||e); }
+}
+
+async function createAdmin() {
+  const payload={
+    username:document.getElementById('newAdminUsername').value.trim(),
+    displayName:document.getElementById('newAdminName').value.trim(),
+    email:document.getElementById('newAdminEmail').value.trim()
+  };
+  if(!payload.username) return message('Admin username आवश्यक छ ।');
+  try {
+    const r=await api('superAdminCreateAdmin',[sessionToken,payload]);
+    document.getElementById('newAdminUsername').value='';
+    document.getElementById('newAdminName').value='';
+    document.getElementById('newAdminEmail').value='';
+    await loadAdmins();
+    document.getElementById('msgText').innerHTML='Admin account तयार भयो ।<br><br>Username: <b>'+esc(r.username)+'</b><br><div class="temp-pass">'+esc(r.temporaryPassword)+'</div><br>Temporary password सुरक्षित रूपमा Admin लाई दिनुहोस् ।';
+    document.getElementById('msg').style.display='flex';
+  } catch(e) { message(e.message||e); }
+}
+
+async function setAdminStatus(adminId,status) {
+  try {
+    await api('superAdminSetAdminStatus',[sessionToken,adminId,status]);
+    await loadAdmins();
+    message(status==='ACTIVE'?'Admin Account Active भयो ।':'Admin Account Inactive भयो । Existing sessions पनि revoke गरिएको छ ।');
+  } catch(e) { message(e.message||e); }
+}
+
+async function loadPermissions() {
+  const adminId=document.getElementById('permAdminSelect').value;
+  const box=document.getElementById('permGrid');
+  const save=document.getElementById('savePermBtn');
+  if(!adminId) { box.innerHTML=''; save.style.display='none'; return; }
+  try {
+    const d=await api('superAdminGetPermissions',[sessionToken,adminId]);
+    const map={};
+    (d.permissions||[]).forEach(p=>map[p.module]=p);
+    const heads=['Module','View','Add','Edit','Delete','Approve','Reinstate'];
+    let html='<div class="check-grid">'+heads.map((h,i)=>'<div class="check-head '+(i>3?'hide-mobile':'')+'">'+h+'</div>').join('');
+    (d.catalog||[]).forEach(m=>{
+      const p=map[m.key]||{};
+      html+='<div class="check-cell"><b>'+esc(m.label)+'</b></div>'+
+        checkCell(m.key,'view',p.canView)+
+        checkCell(m.key,'add',p.canAdd)+
+        checkCell(m.key,'edit',p.canEdit)+
+        checkCell(m.key,'delete',p.canDelete,true)+
+        checkCell(m.key,'approve',p.canApprove,true)+
+        checkCell(m.key,'reinstate',p.canReinstate,true);
+    });
+    html+='</div>';
+    box.innerHTML=html; save.style.display='inline-block';
+  } catch(e) { message(e.message||e); }
+}
+
+function checkCell(module,key,checked,hide) {
+  return '<div class="check-cell '+(hide?'hide-mobile':'')+'"><input type="checkbox" data-module="'+escAttr(module)+'" data-perm="'+key+'" '+(checked?'checked':'')+'></div>';
+}
+
+async function savePermissions() {
+  const adminId=document.getElementById('permAdminSelect').value;
+  if(!adminId) return;
+  const rows={};
+  document.querySelectorAll('#permGrid input[type=checkbox]').forEach(c=>{
+    const m=c.dataset.module;
+    rows[m]=rows[m]||{module:m};
+    const key='can'+c.dataset.perm.charAt(0).toUpperCase()+c.dataset.perm.slice(1);
+    rows[m][key]=c.checked;
+  });
+  try {
+    await api('superAdminSavePermissions',[sessionToken,adminId,Object.values(rows)]);
+    message('Admin permissions सफलतापूर्वक update भयो ।');
+  } catch(e) { message(e.message||e); }
+}
+
+async function loadApprovalSettings() {
+  try {
+    approvalCache=await api('superAdminGetApprovalSettings',[sessionToken]);
+    document.getElementById('approvalSettings').innerHTML=approvalCache.map((s,i)=>
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px 0;border-bottom:1px solid #e5e7eb;">'+
+      '<div><b>'+esc(s.description)+'</b><div style="font-size:12px;color:#64748b;margin-top:4px;">'+esc(s.key)+'</div></div>'+
+      '<label style="margin:0;white-space:nowrap;"><input style="width:auto;" type="checkbox" data-approval="'+escAttr(s.key)+'" '+(s.enabled?'checked':'')+'> ON</label></div>'
+    ).join('');
+  } catch(e) { message(e.message||e); }
+}
+
+async function saveApprovalSettings() {
+  const settings=[];
+  document.querySelectorAll('[data-approval]').forEach(c=>settings.push({key:c.dataset.approval,enabled:c.checked}));
+  try {
+    await api('superAdminSaveApprovalSettings',[sessionToken,settings]);
+    message('Approval settings update भयो ।');
+  } catch(e) { message(e.message||e); }
+}
+
+async function loadAudit() {
+  try {
+    const rows=await api('superAdminGetAuditLog',[sessionToken,100]);
+    document.getElementById('auditTable').innerHTML=rows.map(r=>'<tr><td>'+esc(r.timestamp)+'</td><td>'+esc(r.username)+'</td><td>'+esc(r.action)+'</td><td>'+esc(r.module)+'</td><td>'+esc(r.result)+'</td><td>'+esc(r.details)+'</td></tr>').join('');
+  } catch(e) { message(e.message||e); }
+}
+
+async function changePassword() {
+  const oldP=document.getElementById('oldPass').value;
+  const newP=document.getElementById('newPass').value;
+  const confirm=document.getElementById('confirmPass').value;
+  if(newP!==confirm) return message('नयाँ Password र Confirm Password मिलेन ।');
+  try {
+    await api('adminChangeOwnPassword',[sessionToken,oldP,newP]);
+    document.getElementById('oldPass').value='';
+    document.getElementById('newPass').value='';
+    document.getElementById('confirmPass').value='';
+    message('Password सफलतापूर्वक परिवर्तन भयो ।');
+  } catch(e) { message(e.message||e); }
+}
+
+function esc(v) { return String(v==null?'':v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function escAttr(v) { return esc(v).replace(/'/g,'&#39;'); }
+function js(v) { return String(v||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+
+restoreSession();
+</script>
+</body>
+</html>
