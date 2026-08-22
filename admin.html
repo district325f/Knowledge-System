@@ -110,6 +110,7 @@
     <label>Password</label>
     <input id="loginPass" type="password" autocomplete="current-password">
     <button id="loginBtn" class="primary" onclick="login()">Login</button>
+    <button class="secondary" style="width:100%;margin-top:9px;" onclick="openForgotPassword()">Forgot Password</button>
     <p style="margin-top:16px;"><a href="index.html" style="color:#0f4c81;text-decoration:none;font-weight:800;">← Public System</a></p>
   </div>
 </div>
@@ -130,12 +131,14 @@
     <button class="nav-btn super-only" data-panel="memberimport" onclick="showPanel('memberimport',this)">📥 Member Monthly Import</button>
     <button class="nav-btn super-only" data-panel="memberrollback" onclick="showPanel('memberrollback',this)">↩ Member Import Rollback</button>
     <button class="nav-btn super-only" data-panel="profileprogress" onclick="showPanel('profileprogress',this)">📊 Profile Progress</button>
+    <button class="nav-btn super-only" data-panel="reports" onclick="showPanel('reports',this)">📑 Reporting Center</button>
     <button class="nav-btn super-only" data-panel="admins" onclick="showPanel('admins',this)">👥 Admin Management</button>
     <button class="nav-btn super-only" data-panel="permissions" onclick="showPanel('permissions',this)">✅ Permissions</button>
     <button class="nav-btn module-nav" data-module="MEMBER_REQUESTS" data-panel="memberrequests" onclick="showPanel('memberrequests',this)">📝 Member Requests</button>
     <button class="nav-btn super-only" data-panel="deleterequests" onclick="showPanel('deleterequests',this)">🗑 Delete Requests</button>
     <button class="nav-btn super-only" data-panel="approvals" onclick="showPanel('approvals',this)">🛡 Approval Settings</button>
     <button class="nav-btn super-only" data-panel="dataaudit" onclick="showPanel('dataaudit',this)">🔎 Data Change Audit</button>
+    <button class="nav-btn super-only" data-panel="securitycenter" onclick="showPanel('securitycenter',this)">🛡 Security Center</button>
     <button class="nav-btn super-only" data-panel="securityevents" onclick="showPanel('securityevents',this)">🔐 Security Events</button>
     <button class="nav-btn super-only" data-panel="audit" onclick="showPanel('audit',this)">📜 System Audit Log</button>
     <button class="nav-btn" data-panel="password" onclick="showPanel('password',this)">🔐 Change Password</button>
@@ -295,6 +298,82 @@
       <div id="profileProgressDetail" class="card" style="display:none;"></div>
     </section>
 
+
+    <section id="panel-reports" class="panel super-only">
+      <div class="card">
+        <h2>Super Admin Reporting Center</h2>
+        <div id="reportSummary" class="grid"></div>
+      </div>
+
+      <div class="card">
+        <h2>Member Profile Report</h2>
+        <div class="actions">
+          <button class="secondary" onclick="loadReportProfile()">Refresh</button>
+          <button class="secondary" onclick="printReportSection('reportProfileWrap','Member Profile Report')">Print / PDF</button>
+          <button class="secondary" onclick="downloadReportProfileCsv()">Download CSV</button>
+        </div>
+        <div id="reportProfileWrap" style="margin-top:14px;"></div>
+      </div>
+
+      <div class="card">
+        <h2>Member Import History Report</h2>
+        <div class="actions">
+          <button class="secondary" onclick="loadReportImports()">Refresh</button>
+          <button class="secondary" onclick="printReportSection('reportImportWrap','Member Import History')">Print / PDF</button>
+          <button class="secondary" onclick="downloadReportImportsCsv()">Download CSV</button>
+        </div>
+        <div id="reportImportWrap" style="margin-top:14px;"></div>
+      </div>
+
+      <div class="card">
+        <h2>Dropped / Reinstated Member History</h2>
+        <div class="actions">
+          <select id="reportMemberHistoryStatus" style="max-width:220px;">
+            <option value="">All</option>
+            <option value="DROPPED">Dropped</option>
+            <option value="REINSTATED">Reinstated</option>
+          </select>
+          <button class="secondary" onclick="loadReportMemberHistory()">Refresh</button>
+          <button class="secondary" onclick="printReportSection('reportMemberHistoryWrap','Dropped / Reinstated Member History')">Print / PDF</button>
+          <button class="secondary" onclick="downloadReportMemberHistoryCsv()">Download CSV</button>
+        </div>
+        <div id="reportMemberHistoryWrap" style="margin-top:14px;"></div>
+      </div>
+
+      <div class="card">
+        <h2>Data Change Audit Report</h2>
+        <div class="grid">
+          <div><label>Member / Target ID</label><input id="reportAuditTarget"></div>
+          <div><label>Admin Username</label><input id="reportAuditUsername"></div>
+          <div><label>Module</label>
+            <select id="reportAuditModule">
+              <option value="">All</option>
+              <option value="MEMBERS">Members</option>
+              <option value="QUIZ">Quiz</option>
+              <option value="PROGRAMS">Programs</option>
+              <option value="KNOWLEDGE">Knowledge</option>
+            </select>
+          </div>
+        </div>
+        <div class="actions" style="margin-top:12px;">
+          <button class="secondary" onclick="loadReportDataAudit()">Search</button>
+          <button class="secondary" onclick="printReportSection('reportAuditWrap','Data Change Audit Report')">Print / PDF</button>
+          <button class="secondary" onclick="downloadReportDataAuditCsv()">Download CSV</button>
+        </div>
+        <div id="reportAuditWrap" style="margin-top:14px;"></div>
+      </div>
+
+      <div class="card">
+        <h2>Quiz Best Attempts Report</h2>
+        <div class="actions">
+          <button class="secondary" onclick="loadReportQuizBest()">Refresh</button>
+          <button class="secondary" onclick="printReportSection('reportQuizBestWrap','Quiz Best Attempts')">Print / PDF</button>
+          <button class="secondary" onclick="downloadReportQuizBestCsv()">Download CSV</button>
+        </div>
+        <div id="reportQuizBestWrap" style="margin-top:14px;"></div>
+      </div>
+    </section>
+
     <section id="panel-admins" class="panel super-only">
       <div class="card">
         <h2>Create Admin</h2>
@@ -382,6 +461,38 @@
       </div>
     </section>
 
+
+    <section id="panel-securitycenter" class="panel super-only">
+      <div class="card">
+        <h2>Super Admin Security Center</h2>
+        <div id="securityStatusBox" class="grid"></div>
+      </div>
+
+      <div class="card">
+        <h2>Fresh Security Verification</h2>
+        <p style="color:#64748b;line-height:1.6;">
+          Sensitive operation अघि registered email OTP verify गरेर temporary security grant लिन सकिन्छ ।
+        </p>
+        <div class="actions">
+          <button id="securityOtpSendBtn" class="primary" onclick="requestSensitiveOtp()">Send Security OTP</button>
+        </div>
+        <div id="securityOtpVerifyArea" style="display:none;margin-top:12px;">
+          <label>Security OTP</label>
+          <input id="securityOtpInput" inputmode="numeric" maxlength="6" placeholder="6-digit OTP">
+          <button id="securityOtpVerifyBtn" class="primary" style="margin-top:10px;" onclick="verifySensitiveOtp()">Verify OTP</button>
+        </div>
+        <div id="securityGrantStatus" class="inline-status"></div>
+      </div>
+
+      <div class="card">
+        <h2>Session Control</h2>
+        <p style="color:#64748b;line-height:1.6;">
+          Emergency अवस्थामा सबै Admin/Super Admin active sessions revoke गर्न सकिन्छ ।
+        </p>
+        <button class="danger" onclick="logoutAllAdminSessions()">Logout All Sessions</button>
+      </div>
+    </section>
+
     <section id="panel-securityevents" class="panel super-only">
       <div class="card">
         <h2>Security Events</h2>
@@ -430,6 +541,35 @@
 </div>
 
 <div id="msg" class="msg"><div class="msg-card"><p id="msgText"></p><button class="primary" onclick="closeMsg()">OK</button></div></div>
+
+
+<div id="forgotPasswordBox" class="msg">
+  <div class="msg-card" style="max-width:480px;">
+    <h3 style="color:#0f4c81;margin-top:0;">Forgot Password</h3>
+
+    <div id="forgotStep1">
+      <label style="text-align:left;">Username / Email</label>
+      <input id="forgotUsername" autocomplete="username">
+      <button id="forgotSendOtpBtn" class="primary" style="width:100%;margin-top:12px;" onclick="forgotSendOtp()">Send OTP</button>
+    </div>
+
+    <div id="forgotStep2" style="display:none;">
+      <label style="text-align:left;">OTP</label>
+      <input id="forgotOtp" inputmode="numeric" maxlength="6">
+      <button id="forgotVerifyOtpBtn" class="primary" style="width:100%;margin-top:12px;" onclick="forgotVerifyOtp()">Verify OTP</button>
+    </div>
+
+    <div id="forgotStep3" style="display:none;">
+      <label style="text-align:left;">New Password</label>
+      <input id="forgotNewPass" type="password" autocomplete="new-password">
+      <label style="text-align:left;">Confirm Password</label>
+      <input id="forgotConfirmPass" type="password" autocomplete="new-password">
+      <button id="forgotResetBtn" class="primary" style="width:100%;margin-top:12px;" onclick="forgotCompleteReset()">Reset Password</button>
+    </div>
+
+    <button class="secondary" style="width:100%;margin-top:10px;" onclick="closeForgotPassword()">Cancel</button>
+  </div>
+</div>
 
 <div id="confirmBox" class="msg">
   <div class="msg-card">
@@ -514,7 +654,16 @@ function actionLabel(action) {
     superAdminListMemberImportBackups:'Member backups load हुँदैछ...',
     superAdminPreviewMemberImportRollback:'Rollback preview हुँदैछ...',
     superAdminRollbackMemberImport:'Members restore हुँदैछ...',
-    superAdminValidateMemberImportSafety:'Import safety check हुँदैछ...'
+    superAdminValidateMemberImportSafety:'Import safety check हुँदैछ...',
+    superAdminGetDroppedReinstatedHistory:'Member history load हुँदैछ...',
+    superAdminGetReportingSummary:'Reporting summary load हुँदैछ...',
+    adminRequestPasswordReset:'Password reset OTP पठाइँदैछ...',
+    adminVerifyPasswordResetOtp:'Reset OTP verify हुँदैछ...',
+    adminCompletePasswordReset:'Password reset हुँदैछ...',
+    superAdminRequestSensitiveOtp:'Security OTP पठाइँदैछ...',
+    superAdminVerifySensitiveOtp:'Security OTP verify हुँदैछ...',
+    superAdminLogoutAllSessions:'सबै sessions revoke हुँदैछन्...',
+    adminGetSecurityStatus:'Security status load हुँदैछ...'
   };
   return map[action] || 'प्रक्रिया भइरहेको छ...';
 }
@@ -646,6 +795,14 @@ async function openApp() {
     await loadAdmins();
     await loadApprovalSettings();
   }
+
+  try {
+    const securityStatus=await api('adminGetSecurityStatus',[sessionToken]);
+    inactivityLimitMs=Number(securityStatus.idleLimitMinutes||30)*60*1000;
+  } catch(e) {}
+
+  lastActivityAt=Date.now();
+  startInactivityWatch();
 }
 
 function renderModules() {
@@ -684,6 +841,8 @@ function showPanel(name,btn) {
   if(name==='profileprogress' && currentUser && currentUser.role==='SUPER_ADMIN') loadProfileProgress();
   if(name==='quizbest' && currentUser && currentUser.role==='SUPER_ADMIN') loadQuizBestAttempts();
   if(name==='memberrollback' && currentUser && currentUser.role==='SUPER_ADMIN') loadMemberImportBackups();
+  if(name==='reports' && currentUser && currentUser.role==='SUPER_ADMIN') loadReportingCenter();
+  if(name==='securitycenter' && currentUser && currentUser.role==='SUPER_ADMIN') loadSecurityCenter();
 }
 
 async function logout() {
@@ -1750,6 +1909,12 @@ async function previewMemberRollback(backupRow) {
 }
 
 function confirmMemberRollback(backupRow) {
+  requireFreshSecurity('Member Import Rollback', function(){
+    confirmMemberRollbackVerified(backupRow);
+  });
+}
+
+function confirmMemberRollbackVerified(backupRow) {
   const text=document.getElementById('rollbackConfirmText').value.trim();
   if(text!=='RESTORE MEMBERS') {
     return message('Final confirmation मा ठ्याक्कै RESTORE MEMBERS लेख्नुहोस् ।');
@@ -1772,6 +1937,466 @@ function confirmMemberRollback(backupRow) {
       } catch(e) { message(e.message||e); }
     }
   );
+}
+
+
+
+let reportProfileCache = [];
+let reportImportCache = [];
+let reportMemberHistoryCache = [];
+let reportAuditCache = [];
+let reportQuizBestCache = [];
+
+async function loadReportingCenter() {
+  await Promise.all([
+    loadReportSummary(),
+    loadReportProfile(),
+    loadReportImports(),
+    loadReportMemberHistory(),
+    loadReportDataAudit(),
+    loadReportQuizBest()
+  ]);
+}
+
+async function loadReportSummary() {
+  try {
+    const r=await api('superAdminGetReportingSummary',[sessionToken]);
+    const t=r.profileTotals||{};
+    document.getElementById('reportSummary').innerHTML=
+      '<div class="stat">Total Members<b>'+esc(t.totalMembers||0)+'</b></div>'+
+      '<div class="stat">Profile Updated<b>'+esc(t.profileUpdated||0)+'</b></div>'+
+      '<div class="stat">Profile Pending<b>'+esc(t.pending||0)+'</b></div>'+
+      '<div class="stat">Dropped Archive<b>'+esc(r.droppedCount||0)+'</b></div>'+
+      '<div class="stat">Reinstated History<b>'+esc(r.reinstatedCount||0)+'</b></div>'+
+      '<div class="stat">Clubs<b>'+esc(r.clubCount||0)+'</b></div>';
+  } catch(e) {
+    document.getElementById('reportSummary').innerHTML='<div class="notice">'+esc(e.message||e)+'</div>';
+  }
+}
+
+async function loadReportProfile() {
+  try {
+    const r=await api('superAdminGetMemberProfileProgress',[sessionToken]);
+    reportProfileCache=r.clubs||[];
+
+    let html='<div style="overflow:auto;"><table id="reportProfileTable"><thead><tr>'+
+      '<th>Club</th><th>Total Members</th><th>Profile Updated</th><th>Pending</th><th>Photo Updated</th>'+
+      '</tr></thead><tbody>';
+
+    reportProfileCache.forEach(c=>{
+      html+='<tr>'+
+        '<td>'+esc(c.clubName)+'</td>'+
+        '<td>'+esc(c.totalMembers)+'</td>'+
+        '<td>'+esc(c.profileUpdated)+'</td>'+
+        '<td>'+esc(c.pending)+'</td>'+
+        '<td>'+esc(c.photoUpdated)+'</td>'+
+        '</tr>';
+    });
+
+    html+='</tbody></table></div>';
+    document.getElementById('reportProfileWrap').innerHTML=html;
+  } catch(e) {
+    document.getElementById('reportProfileWrap').innerHTML='<div class="notice">'+esc(e.message||e)+'</div>';
+  }
+}
+
+async function loadReportImports() {
+  try {
+    reportImportCache=await api('superAdminGetMemberImportHistory',[sessionToken,100]);
+
+    let html='<div style="overflow:auto;"><table><thead><tr>'+
+      '<th>Time</th><th>File</th><th>Total</th><th>New</th><th>Updated</th><th>Dropped</th><th>Reinstated</th><th>Unchanged</th><th>Status</th>'+
+      '</tr></thead><tbody>';
+
+    reportImportCache.forEach(r=>{
+      html+='<tr>'+
+        '<td>'+esc(r.timestamp)+'</td>'+
+        '<td>'+esc(r.fileName)+'</td>'+
+        '<td>'+esc(r.totalImported)+'</td>'+
+        '<td>'+esc(r.newCount)+'</td>'+
+        '<td>'+esc(r.updatedCount)+'</td>'+
+        '<td>'+esc(r.droppedCount)+'</td>'+
+        '<td>'+esc(r.reinstatedCount)+'</td>'+
+        '<td>'+esc(r.unchangedCount)+'</td>'+
+        '<td>'+esc(r.status)+'</td>'+
+        '</tr>';
+    });
+
+    html+='</tbody></table></div>';
+    document.getElementById('reportImportWrap').innerHTML=html;
+  } catch(e) {
+    document.getElementById('reportImportWrap').innerHTML='<div class="notice">'+esc(e.message||e)+'</div>';
+  }
+}
+
+async function loadReportMemberHistory() {
+  try {
+    const status=document.getElementById('reportMemberHistoryStatus').value;
+    reportMemberHistoryCache=await api('superAdminGetDroppedReinstatedHistory',[sessionToken,status,300]);
+
+    let html='<div style="overflow:auto;"><table><thead><tr>'+
+      '<th>Member ID</th><th>Name</th><th>Club</th><th>Status</th><th>Archived</th><th>Last Seen</th><th>Reinstated</th>'+
+      '</tr></thead><tbody>';
+
+    reportMemberHistoryCache.forEach(r=>{
+      html+='<tr>'+
+        '<td>'+esc(r.memberId)+'</td>'+
+        '<td>'+esc(r.name||'')+'</td>'+
+        '<td>'+esc(r.club||'')+'</td>'+
+        '<td>'+esc(r.status)+'</td>'+
+        '<td>'+esc(r.archivedAt||'')+'</td>'+
+        '<td>'+esc(r.lastSeenAt||'')+'</td>'+
+        '<td>'+esc(r.reinstatedAt||'')+'</td>'+
+        '</tr>';
+    });
+
+    html+='</tbody></table></div>';
+    document.getElementById('reportMemberHistoryWrap').innerHTML=html;
+  } catch(e) {
+    document.getElementById('reportMemberHistoryWrap').innerHTML='<div class="notice">'+esc(e.message||e)+'</div>';
+  }
+}
+
+async function loadReportDataAudit() {
+  try {
+    const filters={
+      targetId:document.getElementById('reportAuditTarget').value.trim(),
+      username:document.getElementById('reportAuditUsername').value.trim(),
+      module:document.getElementById('reportAuditModule').value
+    };
+    reportAuditCache=await api('superAdminGetDataAudit',[sessionToken,filters,500]);
+
+    let html='<div style="overflow:auto;"><table><thead><tr>'+
+      '<th>Time</th><th>User</th><th>Role</th><th>Module</th><th>Target</th><th>Field</th><th>Old</th><th>New</th><th>Stage</th><th>Status</th>'+
+      '</tr></thead><tbody>';
+
+    reportAuditCache.forEach(r=>{
+      html+='<tr>'+
+        '<td>'+esc(r.timestamp)+'</td>'+
+        '<td>'+esc(r.username)+'</td>'+
+        '<td>'+esc(r.role)+'</td>'+
+        '<td>'+esc(r.module)+'</td>'+
+        '<td>'+esc(r.targetId)+'</td>'+
+        '<td>'+esc(r.fieldName)+'</td>'+
+        '<td>'+esc(r.oldValue)+'</td>'+
+        '<td>'+esc(r.newValue)+'</td>'+
+        '<td>'+esc(r.approvalStage)+'</td>'+
+        '<td>'+esc(r.approvalStatus)+'</td>'+
+        '</tr>';
+    });
+
+    html+='</tbody></table></div>';
+    document.getElementById('reportAuditWrap').innerHTML=html;
+  } catch(e) {
+    document.getElementById('reportAuditWrap').innerHTML='<div class="notice">'+esc(e.message||e)+'</div>';
+  }
+}
+
+async function loadReportQuizBest() {
+  try {
+    reportQuizBestCache=await api('superAdminGetQuizBestAttempts',[sessionToken,100]);
+
+    let html='<div style="overflow:auto;"><table><thead><tr>'+
+      '<th>Rank</th><th>Name</th><th>Phone</th><th>Score</th><th>Total</th><th>Time</th><th>Date</th>'+
+      '</tr></thead><tbody>';
+
+    reportQuizBestCache.forEach(r=>{
+      html+='<tr>'+
+        '<td>'+esc(r.rank)+'</td>'+
+        '<td>'+esc(r.name)+'</td>'+
+        '<td>'+esc(r.phone||'')+'</td>'+
+        '<td>'+esc(r.score)+'</td>'+
+        '<td>'+esc(r.total)+'</td>'+
+        '<td>'+esc(r.timeTaken)+' sec</td>'+
+        '<td>'+esc(r.date||'')+'</td>'+
+        '</tr>';
+    });
+
+    html+='</tbody></table></div>';
+    document.getElementById('reportQuizBestWrap').innerHTML=html;
+  } catch(e) {
+    document.getElementById('reportQuizBestWrap').innerHTML='<div class="notice">'+esc(e.message||e)+'</div>';
+  }
+}
+
+function printReportSection(elementId,title) {
+  const el=document.getElementById(elementId);
+  if(!el || !el.innerHTML.trim()) return message('पहिला report load गर्नुहोस् ।');
+
+  const w=window.open('','_blank');
+  w.document.write(
+    '<html><head><title>'+esc(title)+'</title>'+
+    '<style>'+
+    'body{font-family:Arial;padding:20px;color:#111}'+
+    'h2{text-align:center;margin-bottom:18px}'+
+    'table{width:100%;border-collapse:collapse}'+
+    'th,td{border:1px solid #999;padding:6px;font-size:11px;vertical-align:top}'+
+    'th{background:#eee}'+
+    '@media print{button{display:none}}'+
+    '</style></head><body>'+
+    '<h2>'+esc(title)+'</h2>'+
+    el.innerHTML+
+    '</body></html>'
+  );
+  w.document.close();
+  w.focus();
+  setTimeout(()=>w.print(),250);
+}
+
+function csvDownload(filename,headers,rows) {
+  const matrix=[headers].concat(rows);
+  const csv=matrix.map(r=>r.map(v=>{
+    const s=String(v==null?'':v).replace(/"/g,'""');
+    return '"'+s+'"';
+  }).join(',')).join('\r\n');
+
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function downloadReportProfileCsv() {
+  requireFreshSecurity('Profile Report Download', function(){
+    downloadReportProfileCsvVerified();
+  });
+}
+
+function downloadReportProfileCsvVerified() {
+  if(!reportProfileCache.length) return message('Profile report load गर्नुहोस् ।');
+  csvDownload(
+    'Member_Profile_Report.csv',
+    ['Club','Total Members','Profile Updated','Pending','Photo Updated'],
+    reportProfileCache.map(c=>[c.clubName,c.totalMembers,c.profileUpdated,c.pending,c.photoUpdated])
+  );
+}
+
+function downloadReportImportsCsv() {
+  requireFreshSecurity('Imports Report Download', function(){
+    downloadReportImportsCsvVerified();
+  });
+}
+
+function downloadReportImportsCsvVerified() {
+  if(!reportImportCache.length) return message('Import report load गर्नुहोस् ।');
+  csvDownload(
+    'Member_Import_History.csv',
+    ['Time','File','Total','New','Updated','Dropped','Reinstated','Unchanged','Status'],
+    reportImportCache.map(r=>[r.timestamp,r.fileName,r.totalImported,r.newCount,r.updatedCount,r.droppedCount,r.reinstatedCount,r.unchangedCount,r.status])
+  );
+}
+
+function downloadReportMemberHistoryCsv() {
+  requireFreshSecurity('MemberHistory Report Download', function(){
+    downloadReportMemberHistoryCsvVerified();
+  });
+}
+
+function downloadReportMemberHistoryCsvVerified() {
+  if(!reportMemberHistoryCache.length) return message('Member history load गर्नुहोस् ।');
+  csvDownload(
+    'Dropped_Reinstated_History.csv',
+    ['Member ID','Name','Club','Status','Archived','Last Seen','Reinstated'],
+    reportMemberHistoryCache.map(r=>[r.memberId,r.name||'',r.club||'',r.status,r.archivedAt||'',r.lastSeenAt||'',r.reinstatedAt||''])
+  );
+}
+
+function downloadReportDataAuditCsv() {
+  requireFreshSecurity('DataAudit Report Download', function(){
+    downloadReportDataAuditCsvVerified();
+  });
+}
+
+function downloadReportDataAuditCsvVerified() {
+  if(!reportAuditCache.length) return message('Audit report load गर्नुहोस् ।');
+  csvDownload(
+    'Data_Change_Audit.csv',
+    ['Time','Username','Role','Module','Target ID','Field','Old Value','New Value','Approval Stage','Approval Status'],
+    reportAuditCache.map(r=>[r.timestamp,r.username,r.role,r.module,r.targetId,r.fieldName,r.oldValue,r.newValue,r.approvalStage,r.approvalStatus])
+  );
+}
+
+function downloadReportQuizBestCsv() {
+  requireFreshSecurity('QuizBest Report Download', function(){
+    downloadReportQuizBestCsvVerified();
+  });
+}
+
+function downloadReportQuizBestCsvVerified() {
+  if(!reportQuizBestCache.length) return message('Quiz report load गर्नुहोस् ।');
+  csvDownload(
+    'Quiz_Best_Attempts_Report.csv',
+    ['Rank','Name','Phone','Score','Total','Time','Date'],
+    reportQuizBestCache.map(r=>[r.rank,r.name,r.phone||'',r.score,r.total,r.timeTaken,r.date||''])
+  );
+}
+
+
+
+let forgotResetToken = '';
+let sensitiveGrantToken = '';
+let sensitiveGrantExpiresAt = 0;
+let inactivityTimer = null;
+let inactivityLimitMs = 30 * 60 * 1000;
+let lastActivityAt = Date.now();
+
+function openForgotPassword() {
+  forgotResetToken='';
+  document.getElementById('forgotUsername').value=document.getElementById('loginUser').value.trim();
+  document.getElementById('forgotOtp').value='';
+  document.getElementById('forgotNewPass').value='';
+  document.getElementById('forgotConfirmPass').value='';
+  document.getElementById('forgotStep1').style.display='block';
+  document.getElementById('forgotStep2').style.display='none';
+  document.getElementById('forgotStep3').style.display='none';
+  document.getElementById('forgotPasswordBox').style.display='flex';
+}
+
+function closeForgotPassword() {
+  forgotResetToken='';
+  document.getElementById('forgotPasswordBox').style.display='none';
+}
+
+async function forgotSendOtp() {
+  const username=document.getElementById('forgotUsername').value.trim();
+  if(!username) return message('Username / Email लेख्नुहोस् ।');
+
+  try {
+    const r=await api('adminRequestPasswordReset',[username]);
+    document.getElementById('forgotStep1').style.display='none';
+    document.getElementById('forgotStep2').style.display='block';
+    message(r.message || 'Registered email भए OTP पठाइएको छ ।');
+  } catch(e) { message(e.message||e); }
+}
+
+async function forgotVerifyOtp() {
+  const username=document.getElementById('forgotUsername').value.trim();
+  const otp=document.getElementById('forgotOtp').value.trim();
+  if(!otp) return message('OTP लेख्नुहोस् ।');
+
+  try {
+    const r=await api('adminVerifyPasswordResetOtp',[username,otp]);
+    forgotResetToken=r.resetToken||'';
+    document.getElementById('forgotStep2').style.display='none';
+    document.getElementById('forgotStep3').style.display='block';
+    message('OTP verified भयो । अब नयाँ Password राख्नुहोस् ।');
+  } catch(e) { message(e.message||e); }
+}
+
+async function forgotCompleteReset() {
+  const p1=document.getElementById('forgotNewPass').value;
+  const p2=document.getElementById('forgotConfirmPass').value;
+  if(!forgotResetToken) return message('Reset session छैन । OTP फेरि verify गर्नुहोस् ।');
+  if(p1!==p2) return message('New Password र Confirm Password मिलेन ।');
+
+  try {
+    const r=await api('adminCompletePasswordReset',[forgotResetToken,p1]);
+    closeForgotPassword();
+    message(r.message || 'Password reset सफल भयो ।');
+  } catch(e) { message(e.message||e); }
+}
+
+async function loadSecurityCenter() {
+  try {
+    const r=await api('adminGetSecurityStatus',[sessionToken]);
+    inactivityLimitMs=Number(r.idleLimitMinutes||30)*60*1000;
+
+    document.getElementById('securityStatusBox').innerHTML=
+      '<div class="stat">Role<b>'+esc(r.role)+'</b></div>'+
+      '<div class="stat">Idle Auto Logout<b>'+esc(r.idleLimitMinutes)+' min</b></div>'+
+      '<div class="stat">Security Grant<b>'+esc(r.sensitiveGrantMinutes)+' min</b></div>';
+  } catch(e) {
+    document.getElementById('securityStatusBox').innerHTML='<div class="notice">'+esc(e.message||e)+'</div>';
+  }
+}
+
+async function requestSensitiveOtp() {
+  try {
+    const r=await api('superAdminRequestSensitiveOtp',[sessionToken]);
+    document.getElementById('securityOtpVerifyArea').style.display='block';
+    message('Security OTP '+(r.emailMasked||'registered email')+' मा पठाइएको छ ।');
+  } catch(e) { message(e.message||e); }
+}
+
+async function verifySensitiveOtp() {
+  const otp=document.getElementById('securityOtpInput').value.trim();
+  if(!otp) return message('Security OTP लेख्नुहोस् ।');
+
+  try {
+    const r=await api('superAdminVerifySensitiveOtp',[sessionToken,otp]);
+    sensitiveGrantToken=r.grantToken||'';
+    sensitiveGrantExpiresAt=Date.now()+Number(r.expiresInMinutes||10)*60*1000;
+
+    const s=document.getElementById('securityGrantStatus');
+    s.className='inline-status saved';
+    s.textContent='Security verification सफल भयो । Grant '+r.expiresInMinutes+' मिनेट valid छ ।';
+    document.getElementById('securityOtpInput').value='';
+    document.getElementById('securityOtpVerifyArea').style.display='none';
+  } catch(e) { message(e.message||e); }
+}
+
+function hasFreshSensitiveGrant() {
+  return !!sensitiveGrantToken && Date.now() < sensitiveGrantExpiresAt;
+}
+
+function requireFreshSecurity(actionLabel, callback) {
+  if(!currentUser || currentUser.role!=='SUPER_ADMIN') {
+    if(callback) callback();
+    return;
+  }
+
+  if(hasFreshSensitiveGrant()) {
+    if(callback) callback();
+    return;
+  }
+
+  showPanel('securitycenter', document.querySelector('[data-panel="securitycenter"]'));
+  message(actionLabel+' अघि Fresh Security OTP verification आवश्यक छ ।');
+}
+
+function logoutAllAdminSessions() {
+  universalConfirm(
+    'Logout All Sessions',
+    'सबै Admin र Super Admin active sessions तुरुन्त revoke गर्ने हो ? यो action पछि यो session पनि invalid हुनेछ ।',
+    async function(){
+      try {
+        const r=await api('superAdminLogoutAllSessions',[sessionToken]);
+        sessionStorage.removeItem('lks_admin_token');
+        message('Active sessions revoke भए: '+r.revoked+' । फेरि Login गर्नुहोस् ।');
+        setTimeout(()=>location.reload(),1800);
+      } catch(e) { message(e.message||e); }
+    }
+  );
+}
+
+function resetActivityClock() {
+  lastActivityAt=Date.now();
+}
+
+['click','keydown','mousemove','touchstart','scroll'].forEach(evt=>{
+  document.addEventListener(evt, resetActivityClock, {passive:true});
+});
+
+function startInactivityWatch() {
+  if(inactivityTimer) clearInterval(inactivityTimer);
+
+  inactivityTimer=setInterval(function(){
+    if(!sessionToken || !currentUser) return;
+
+    if(Date.now()-lastActivityAt > inactivityLimitMs) {
+      sessionStorage.removeItem('lks_admin_token');
+      sessionToken='';
+      currentUser=null;
+      clearInterval(inactivityTimer);
+      message('Security का कारण inactivity पछि session auto logout भएको छ ।');
+      setTimeout(()=>location.reload(),1800);
+    }
+  },30000);
 }
 
 
