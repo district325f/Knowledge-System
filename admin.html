@@ -92,8 +92,12 @@
     <button class="nav-btn module-nav" data-module="MEMBERS" data-panel="membermanage" onclick="showPanel('membermanage',this)">👤 Member Management</button>
     <button class="nav-btn super-only" data-panel="admins" onclick="showPanel('admins',this)">👥 Admin Management</button>
     <button class="nav-btn super-only" data-panel="permissions" onclick="showPanel('permissions',this)">✅ Permissions</button>
+    <button class="nav-btn module-nav" data-module="MEMBER_REQUESTS" data-panel="memberrequests" onclick="showPanel('memberrequests',this)">📝 Member Requests</button>
+    <button class="nav-btn super-only" data-panel="deleterequests" onclick="showPanel('deleterequests',this)">🗑 Delete Requests</button>
     <button class="nav-btn super-only" data-panel="approvals" onclick="showPanel('approvals',this)">🛡 Approval Settings</button>
-    <button class="nav-btn super-only" data-panel="audit" onclick="showPanel('audit',this)">📜 Audit Log</button>
+    <button class="nav-btn super-only" data-panel="dataaudit" onclick="showPanel('dataaudit',this)">🔎 Data Change Audit</button>
+    <button class="nav-btn super-only" data-panel="securityevents" onclick="showPanel('securityevents',this)">🔐 Security Events</button>
+    <button class="nav-btn super-only" data-panel="audit" onclick="showPanel('audit',this)">📜 System Audit Log</button>
     <button class="nav-btn" data-panel="password" onclick="showPanel('password',this)">🔐 Change Password</button>
     <button class="nav-btn" onclick="logout()">🚪 Logout</button>
   </aside>
@@ -119,9 +123,6 @@
       <div class="card">
         <h2>Available Modules</h2>
         <div id="moduleCards" class="grid"></div>
-      </div>
-      <div class="notice">
-        Admin लाई full database export/download उपलब्ध छैन । Data access server-side permission अनुसार मात्र हुन्छ ।
       </div>
     </section>
 
@@ -206,6 +207,71 @@
       </div>
     </section>
 
+
+    <section id="panel-memberrequests" class="panel">
+      <div class="card">
+        <h2>Member Update Requests</h2>
+        <div class="actions">
+          <select id="memberReqStatus" style="max-width:260px;">
+            <option value="PENDING_ADMIN">Pending Admin</option>
+            <option value="PENDING_SUPER">Pending Super Admin</option>
+            <option value="COMPLETED">Completed</option>
+            <option value="REJECTED_ADMIN">Rejected by Admin</option>
+            <option value="REJECTED_SUPER">Rejected by Super Admin</option>
+          </select>
+          <button class="secondary" onclick="loadMemberRequests()">Refresh</button>
+        </div>
+        <div id="memberRequestsTable" style="margin-top:14px;"></div>
+      </div>
+    </section>
+
+    <section id="panel-deleterequests" class="panel super-only">
+      <div class="card">
+        <h2>Delete Requests</h2>
+        <div class="actions">
+          <select id="deleteReqStatus" style="max-width:220px;">
+            <option value="PENDING">Pending</option>
+            <option value="APPROVED">Approved</option>
+            <option value="REJECTED">Rejected</option>
+          </select>
+          <button class="secondary" onclick="loadDeleteRequests()">Refresh</button>
+        </div>
+        <div id="deleteRequestsTable" style="margin-top:14px;"></div>
+      </div>
+    </section>
+
+    <section id="panel-dataaudit" class="panel super-only">
+      <div class="card">
+        <h2>Data Change Audit</h2>
+        <div class="grid">
+          <div><label>Member / Target ID</label><input id="auditTarget"></div>
+          <div><label>Admin Username</label><input id="auditUsername"></div>
+          <div><label>Module</label>
+            <select id="auditModule">
+              <option value="">All</option>
+              <option value="MEMBERS">Members</option>
+              <option value="QUIZ">Quiz</option>
+              <option value="PROGRAMS">Programs</option>
+              <option value="KNOWLEDGE">Knowledge</option>
+            </select>
+          </div>
+        </div>
+        <div class="actions" style="margin-top:12px;">
+          <button class="primary" onclick="loadDataAudit()">Search</button>
+          <button class="secondary" onclick="printDataAudit()">Print</button>
+        </div>
+        <div id="dataAuditTable" style="margin-top:14px;"></div>
+      </div>
+    </section>
+
+    <section id="panel-securityevents" class="panel super-only">
+      <div class="card">
+        <h2>Security Events</h2>
+        <button class="secondary" onclick="loadSecurityEvents()">Refresh</button>
+        <div id="securityEventsTable" style="margin-top:14px;"></div>
+      </div>
+    </section>
+
     <section id="panel-approvals" class="panel super-only">
       <div class="card">
         <h2>Approval Settings</h2>
@@ -239,6 +305,18 @@
 </div>
 
 <div id="msg" class="msg"><div class="msg-card"><p id="msgText"></p><button class="primary" onclick="closeMsg()">OK</button></div></div>
+
+<div id="confirmBox" class="msg">
+  <div class="msg-card">
+    <h3 id="confirmTitle" style="color:#0f4c81;margin-top:0;">Confirmation</h3>
+    <p id="confirmText"></p>
+    <div class="actions" style="justify-content:center;">
+      <button class="secondary" onclick="cancelConfirm()">Cancel</button>
+      <button id="confirmActionBtn" class="danger" onclick="runConfirmedAction()">Confirm</button>
+    </div>
+  </div>
+</div>
+
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbyHthx2b4rGjoAMKma2eMZHC_fWET1AVjSyrNRb-OudFOzEDvJ2xGtYLvqV4iCifDw0_Q/exec";
@@ -377,6 +455,10 @@ function showPanel(name,btn) {
   if(name==='quizmanage') loadModuleList('QUIZ',1);
   if(name==='programmanage') loadModuleList('PROGRAMS',1);
   if(name==='knowledgemanage') loadModuleList('KNOWLEDGE',1);
+  if(name==='memberrequests') loadMemberRequests();
+  if(name==='deleterequests' && currentUser && currentUser.role==='SUPER_ADMIN') loadDeleteRequests();
+  if(name==='dataaudit' && currentUser && currentUser.role==='SUPER_ADMIN') loadDataAudit();
+  if(name==='securityevents' && currentUser && currentUser.role==='SUPER_ADMIN') loadSecurityEvents();
 }
 
 async function logout() {
@@ -662,12 +744,25 @@ async function saveModuleRecord(moduleKey) {
 }
 
 async function deleteModuleRecord(moduleKey,rowNumber) {
-  if(!confirm('यो record delete गर्ने हो ? Delete गर्नु अघि system backup राख्छ ।')) return;
-  try {
-    await api('adminDeleteModuleRecord',[sessionToken,moduleKey,rowNumber]);
-    await loadModuleList(moduleKey,1);
-    message('Record delete भयो । Backup सुरक्षित राखिएको छ ।');
-  } catch(e) { message(e.message||e); }
+  const p=getModulePermission(moduleKey);
+  if(!p||!p.canDelete) return message('यो कार्यका लागि permission छैन ।');
+
+  const title=currentUser && currentUser.role==='SUPER_ADMIN' ? 'Delete Confirmation' : 'Delete Request Confirmation';
+  const text=currentUser && currentUser.role==='SUPER_ADMIN'
+    ? 'यो record delete गर्न निश्चित हुनुहुन्छ ? Delete गर्नु अघि backup सुरक्षित हुनेछ ।'
+    : 'यो record delete request Super Admin approval का लागि पठाउने हो ? Super Admin approval बिना record delete हुँदैन ।';
+
+  universalConfirm(title,text,async function(){
+    try {
+      const r=await api('adminDeleteModuleRecord',[sessionToken,moduleKey,rowNumber]);
+      await loadModuleList(moduleKey,1);
+      if(r && r.approvalRequired) {
+        message('Delete request Super Admin approval का लागि पठाइयो ।');
+      } else {
+        message('Record delete भयो । Backup सुरक्षित राखिएको छ ।');
+      }
+    } catch(e) { message(e.message||e); }
+  });
 }
 
 async function findMemberManage() {
@@ -703,16 +798,182 @@ function renderMemberManage(d) {
 async function saveMemberManage(memberId) {
   const changes={};
   document.querySelectorAll('#memberManageResult [data-member-field]').forEach(el=>changes[el.dataset.memberField]=el.value);
-  try {
-    await api('adminUpdateMemberData',[sessionToken,memberId,changes]);
-    message('Member data update भयो । Audit र backup सुरक्षित गरिएको छ ।');
-  } catch(e) { message(e.message||e); }
+
+  universalConfirm(
+    'Member Update Confirmation',
+    'Member ID: '+memberId+'\n\nयो member को data update request/save गर्न निश्चित हुनुहुन्छ ?',
+    async function(){
+      try {
+        const r=await api('adminUpdateMemberData',[sessionToken,memberId,changes]);
+        if(r && r.approvalRequired) {
+          message('Member update request approval workflow मा पठाइयो ।');
+        } else {
+          message('Member data update भयो । Audit र backup सुरक्षित गरिएको छ ।');
+        }
+      } catch(e) { message(e.message||e); }
+    }
+  );
 }
 
 async function reinstateMemberManage(memberId) {
+  const box=document.getElementById('memberManageResult');
+  const titleEl=box ? box.querySelector('h2') : null;
+  const memberName=titleEl ? titleEl.textContent.trim() : '';
+  const clubEl=box ? box.querySelector('.badge') : null;
+  const clubText=clubEl ? clubEl.textContent.trim() : memberId;
+
+  universalConfirm(
+    'Member Reinstate Confirmation',
+    (memberName?memberName+'\n':'') + clubText + '\n\nयो सदस्यलाई Reinstate गर्न निश्चित हुनुहुन्छ ?',
+    async function(){
+      try {
+        const r=await api('adminReinstateMember',[sessionToken,memberId]);
+        if(r && r.approvalRequired) {
+          message('Reinstate request approval workflow मा पठाइयो ।');
+        } else {
+          message('Member Reinstate भयो ।');
+        }
+      } catch(e) { message(e.message||e); }
+    }
+  );
+}
+
+
+
+let pendingConfirmAction=null;
+
+function universalConfirm(title,text,action) {
+  pendingConfirmAction=typeof action==='function'?action:null;
+  document.getElementById('confirmTitle').textContent=title||'Confirmation';
+  document.getElementById('confirmText').textContent=String(text||'');
+  document.getElementById('confirmBox').style.display='flex';
+}
+
+function cancelConfirm() {
+  pendingConfirmAction=null;
+  document.getElementById('confirmBox').style.display='none';
+}
+
+async function runConfirmedAction() {
+  const fn=pendingConfirmAction;
+  pendingConfirmAction=null;
+  document.getElementById('confirmBox').style.display='none';
+  if(fn) await fn();
+}
+
+async function loadDeleteRequests() {
   try {
-    await api('adminReinstateMember',[sessionToken,memberId]);
-    message('Member Reinstate भयो ।');
+    const status=document.getElementById('deleteReqStatus').value;
+    const rows=await api('superAdminListDeleteRequests',[sessionToken,status]);
+    let html='<div style="overflow:auto;"><table><thead><tr><th>Request</th><th>Module</th><th>Requested By</th><th>Time</th><th>Status</th><th>Action</th></tr></thead><tbody>';
+    rows.forEach(r=>{
+      html+='<tr><td>'+esc(r.requestId)+'</td><td>'+esc(r.module)+'</td><td>'+esc(r.requestedByUsername)+'</td><td>'+esc(r.requestedAt)+'</td><td>'+esc(r.status)+'</td><td class="actions">';
+      if(String(r.status).toUpperCase()==='PENDING') {
+        html+='<button class="primary" onclick="reviewDeleteRequest(\''+js(r.requestId)+'\',\'APPROVE\')">Approve</button>';
+        html+='<button class="danger" onclick="reviewDeleteRequest(\''+js(r.requestId)+'\',\'REJECT\')">Reject</button>';
+      }
+      html+='</td></tr>';
+    });
+    html+='</tbody></table></div>';
+    document.getElementById('deleteRequestsTable').innerHTML=html;
+  } catch(e) { message(e.message||e); }
+}
+
+function reviewDeleteRequest(requestId,decision) {
+  const approve=decision==='APPROVE';
+  universalConfirm(
+    approve?'Final Delete Approval':'Reject Delete Request',
+    approve
+      ? 'Request ID: '+requestId+'\n\nApprove गरेपछि target record delete हुनेछ । Backup सुरक्षित रहनेछ ।'
+      : 'Request ID: '+requestId+'\n\nयो delete request reject गर्ने हो ?',
+    async function(){
+      try {
+        await api('superAdminReviewDeleteRequest',[sessionToken,requestId,decision,'']);
+        await loadDeleteRequests();
+        message(approve?'Delete request approve गरी record delete भयो ।':'Delete request reject भयो ।');
+      } catch(e) { message(e.message||e); }
+    }
+  );
+}
+
+async function loadMemberRequests() {
+  try {
+    const status=document.getElementById('memberReqStatus').value;
+    let rows;
+    if(currentUser.role==='SUPER_ADMIN') rows=await api('superAdminListMemberUpdateRequests',[sessionToken,status]);
+    else rows=await api('adminListMemberUpdateRequests',[sessionToken,status]);
+
+    let html='<div style="overflow:auto;"><table><thead><tr><th>Request</th><th>Member ID</th><th>Type</th><th>Status</th><th>Created</th><th>Action</th></tr></thead><tbody>';
+    rows.forEach(r=>{
+      html+='<tr><td>'+esc(r.requestId)+'</td><td>'+esc(r.memberId)+'</td><td>'+esc(r.requestType)+'</td><td>'+esc(r.status)+'</td><td>'+esc(r.createdAt)+'</td><td class="actions">';
+
+      if(currentUser.role==='SUPER_ADMIN' && String(r.status).toUpperCase()==='PENDING_SUPER') {
+        html+='<button class="primary" onclick="reviewMemberRequest(\''+js(r.requestId)+'\',\'APPROVE\',true)">Approve</button>';
+        html+='<button class="danger" onclick="reviewMemberRequest(\''+js(r.requestId)+'\',\'REJECT\',true)">Reject</button>';
+      } else if(currentUser.role!=='SUPER_ADMIN' && String(r.status).toUpperCase()==='PENDING_ADMIN') {
+        html+='<button class="primary" onclick="reviewMemberRequest(\''+js(r.requestId)+'\',\'APPROVE\',false)">Approve</button>';
+        html+='<button class="danger" onclick="reviewMemberRequest(\''+js(r.requestId)+'\',\'REJECT\',false)">Reject</button>';
+      }
+
+      html+='</td></tr>';
+    });
+    html+='</tbody></table></div>';
+    document.getElementById('memberRequestsTable').innerHTML=html;
+  } catch(e) { message(e.message||e); }
+}
+
+function reviewMemberRequest(requestId,decision,isSuper) {
+  const approve=decision==='APPROVE';
+  universalConfirm(
+    approve?'Member Update Approval':'Reject Member Update',
+    'Request ID: '+requestId+'\n\n'+(approve?'यो request approve गर्ने हो ?':'यो request reject गर्ने हो ?'),
+    async function(){
+      try {
+        if(isSuper) await api('superAdminReviewMemberUpdateRequest',[sessionToken,requestId,decision,'']);
+        else await api('adminReviewMemberUpdateRequest',[sessionToken,requestId,decision,'']);
+        await loadMemberRequests();
+        message(approve?'Request approve भयो ।':'Request reject भयो ।');
+      } catch(e) { message(e.message||e); }
+    }
+  );
+}
+
+async function loadDataAudit() {
+  try {
+    const filters={
+      targetId:document.getElementById('auditTarget').value.trim(),
+      username:document.getElementById('auditUsername').value.trim(),
+      module:document.getElementById('auditModule').value
+    };
+    const rows=await api('superAdminGetDataAudit',[sessionToken,filters,250]);
+    let html='<div style="overflow:auto;"><table id="dataAuditPrintable"><thead><tr><th>Time</th><th>User</th><th>Module</th><th>Target</th><th>Field</th><th>Old</th><th>New</th><th>Stage</th><th>Status</th></tr></thead><tbody>';
+    rows.forEach(r=>{
+      html+='<tr><td>'+esc(r.timestamp)+'</td><td>'+esc(r.username)+'</td><td>'+esc(r.module)+'</td><td>'+esc(r.targetId)+'</td><td>'+esc(r.fieldName)+'</td><td>'+esc(r.oldValue)+'</td><td>'+esc(r.newValue)+'</td><td>'+esc(r.approvalStage)+'</td><td>'+esc(r.approvalStatus)+'</td></tr>';
+    });
+    html+='</tbody></table></div>';
+    document.getElementById('dataAuditTable').innerHTML=html;
+  } catch(e) { message(e.message||e); }
+}
+
+function printDataAudit() {
+  const table=document.getElementById('dataAuditPrintable');
+  if(!table) return message('पहिला Audit Search गर्नुहोस् ।');
+  const w=window.open('','_blank');
+  w.document.write('<html><head><title>Data Change Audit</title><style>body{font-family:Arial;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #999;padding:6px;font-size:12px}th{background:#eee}</style></head><body><h2>Data Change Audit</h2>'+table.outerHTML+'</body></html>');
+  w.document.close();
+  w.focus();
+  w.print();
+}
+
+async function loadSecurityEvents() {
+  try {
+    const rows=await api('superAdminGetSecurityEvents',[sessionToken,150]);
+    let html='<div style="overflow:auto;"><table><thead><tr><th>Time</th><th>User</th><th>Role</th><th>Event</th><th>Details</th></tr></thead><tbody>';
+    rows.forEach(r=>{
+      html+='<tr><td>'+esc(r.timestamp)+'</td><td>'+esc(r.username)+'</td><td>'+esc(r.role)+'</td><td>'+esc(r.eventType)+'</td><td>'+esc(r.details)+'</td></tr>';
+    });
+    html+='</tbody></table></div>';
+    document.getElementById('securityEventsTable').innerHTML=html;
   } catch(e) { message(e.message||e); }
 }
 
