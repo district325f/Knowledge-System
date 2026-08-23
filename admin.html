@@ -451,6 +451,61 @@
       .card{padding:14px!important}
     }
 
+
+    /* ==========================================================
+       MOBILE SIDEBAR + MORE BUTTON FINAL FIX
+       - Sidebar fully off-canvas when closed
+       - No clipped blue text visible
+       - More button explicitly opens sidebar
+    ========================================================== */
+    @media (max-width:820px){
+      .sidebar{
+        position:fixed!important;
+        top:0!important;
+        bottom:0!important;
+        left:0!important;
+        width:min(82vw,280px)!important;
+        max-width:280px!important;
+        height:100dvh!important;
+        margin:0!important;
+        transform:translateX(-105%)!important;
+        transition:transform .22s ease!important;
+        overflow-y:auto!important;
+        overflow-x:hidden!important;
+        z-index:10035!important;
+        box-shadow:18px 0 36px rgba(15,23,42,.22)!important;
+        visibility:hidden!important;
+        pointer-events:none!important;
+      }
+
+      .sidebar.mobile-open{
+        transform:translateX(0)!important;
+        visibility:visible!important;
+        pointer-events:auto!important;
+      }
+
+      .sidebar-mobile-backdrop{
+        position:fixed!important;
+        inset:0!important;
+        z-index:10030!important;
+        background:rgba(15,23,42,.46)!important;
+      }
+
+      .sidebar-mobile-backdrop.show{
+        display:block!important;
+      }
+
+      .main{
+        margin-left:0!important;
+        width:100%!important;
+        max-width:100%!important;
+      }
+
+      .mobile-bottom-nav{
+        z-index:10020!important;
+      }
+    }
+
 </style>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
@@ -3183,6 +3238,15 @@ function printFinalDiagnostics() {
 
 
 
+
+function openMobileSidebar() {
+  const sidebar=document.querySelector('.sidebar');
+  const backdrop=document.getElementById('sidebarMobileBackdrop');
+  if(!sidebar || !backdrop) return;
+  sidebar.classList.add('mobile-open');
+  backdrop.classList.add('show');
+}
+
 function toggleMobileSidebar() {
   const sidebar=document.querySelector('.sidebar');
   const backdrop=document.getElementById('sidebarMobileBackdrop');
@@ -3191,6 +3255,7 @@ function toggleMobileSidebar() {
   const open=!sidebar.classList.contains('mobile-open');
   sidebar.classList.toggle('mobile-open',open);
   backdrop.classList.toggle('show',open);
+  document.body.classList.toggle('mobile-sidebar-open',open);
 }
 
 function closeMobileSidebar() {
@@ -3198,6 +3263,7 @@ function closeMobileSidebar() {
   const backdrop=document.getElementById('sidebarMobileBackdrop');
   if(sidebar) sidebar.classList.remove('mobile-open');
   if(backdrop) backdrop.classList.remove('show');
+  document.body.classList.remove('mobile-sidebar-open');
 }
 
 function closeTopVisibleModal() {
@@ -3444,7 +3510,7 @@ restoreSession();
   <button data-mobile-panel="members" onclick="mobileGo('members',this)"><span>👤</span><span>Members</span></button>
   <button data-mobile-panel="quiz" onclick="mobileGo('quiz',this)"><span>🏆</span><span>Quiz</span></button>
   <button data-mobile-panel="programs" onclick="mobileGo('programs',this)"><span>📅</span><span>Programs</span></button>
-  <button data-mobile-panel="more" onclick="toggleMobileSidebar()"><span>•••</span><span>More</span></button>
+  <button data-mobile-panel="more" onclick="openMobileSidebar()"><span>•••</span><span>More</span></button>
 </div>
 
 </body>
