@@ -2677,25 +2677,65 @@
 
     function prepareImageFileForUpload(file, previewElementId, callback) {
       if (!file) return;
-      if (!/^image\//.test(file.type || "")) { showCustomMessage("कृपया image file मात्र select गर्नुहोस् ।"); return; }
+
+      const allowedTypes = ["image/jpeg","image/png"];
+      if (allowedTypes.indexOf(String(file.type || "").toLowerCase()) === -1) {
+        showCustomMessage("JPG/JPEG वा PNG photo मात्र upload गर्न मिल्छ ।");
+        return;
+      }
+
+      if (file.size > 2 * 1024 * 1024) {
+        showCustomMessage("Photo size 2 MB भन्दा ठूलो छ । कृपया 2 MB भन्दा सानो photo छान्नुहोस् ।");
+        return;
+      }
+
       const reader = new FileReader();
       reader.onload = function(evt) {
         const img = new Image();
+
         img.onload = function() {
+          if (img.naturalWidth < 400 || img.naturalHeight < 400) {
+            showCustomMessage("Photo resolution कम्तीमा 400×400 px हुनुपर्छ ।");
+            document.getElementById(previewElementId).innerHTML = "";
+            photoBase64ForUpload = "";
+            return;
+          }
+
           const maxSide = 1400;
           let w = img.width, h = img.height;
           if (w > h && w > maxSide) { h = Math.round(h * maxSide / w); w = maxSide; }
           if (h >= w && h > maxSide) { w = Math.round(w * maxSide / h); h = maxSide; }
+
           const canvas = document.createElement("canvas");
-          canvas.width = w; canvas.height = h;
+          canvas.width = w;
+          canvas.height = h;
           canvas.getContext("2d").drawImage(img, 0, 0, w, h);
-          const jpegData = canvas.toDataURL("image/jpeg", 0.92);
-          document.getElementById(previewElementId).innerHTML = '<img src="' + jpegData + '" alt="Preview">';
+
+          // JPEG compression also reduces Gemini payload and quota pressure.
+          const jpegData = canvas.toDataURL("image/jpeg", 0.86);
+
+          // Final compressed payload guard.
+          const approxBytes = Math.floor((jpegData.split(",")[1] || "").length * 3 / 4);
+          if (approxBytes > 2 * 1024 * 1024) {
+            showCustomMessage("Compressed photo पनि 2 MB भन्दा ठूलो भयो । कृपया अर्को photo छान्नुहोस् ।");
+            document.getElementById(previewElementId).innerHTML = "";
+            photoBase64ForUpload = "";
+            return;
+          }
+
+          document.getElementById(previewElementId).innerHTML =
+            '<img src="' + jpegData + '" alt="Preview">';
+
           callback(jpegData.split(",")[1]);
         };
-        img.onerror = function(){ showCustomMessage("Photo read गर्न सकिएन । अर्को image select गर्नुहोस् ।"); };
+
+        img.onerror = function(){
+          showCustomMessage("Photo read गर्न सकिएन । अर्को image select गर्नुहोस् ।");
+        };
+
         img.src = evt.target.result;
       };
+
       reader.readAsDataURL(file);
     }
 
