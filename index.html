@@ -2519,9 +2519,9 @@
               <div class="photo-option-desc">तपाईंको कम्प्युटर वा मोबाइल ग्यालरीबाट फोटो छान्नुहोस् र अपलोड गर्नुहोस् ।</div>
               <div class="photo-rules">
                 ✔ रंगीन फोटो मात्र<br>
-                ✔ सफा, उज्यालो र clear face<br>
-                ✔ single person only<br>
-                ✔ black & white, sunglasses, closed eyes, cropped head reject
+                ✔ रंगीन, सफा र उज्यालो photo<br>
+                ✔ कम्तीमा 400×400 px<br>
+                ✔ blur, अत्यधिक dark/bright र black & white photo reject
               </div>
 
               <input type="email" id="photoEmailInput" class="otp-input" placeholder="Database email auto fill" readonly>
@@ -2677,38 +2677,6 @@
     function closePhotoUpdatePanel() { document.getElementById("photoUpdatePanel").style.display = "none"; }
 
 
-    let localFaceDetector = null;
-
-    function getLocalFaceDetector_() {
-      if (localFaceDetector) return localFaceDetector;
-
-      if (!("FaceDetector" in window)) {
-        throw new Error(
-          "यो browser मा built-in Face Check उपलब्ध छैन । कृपया updated Google Chrome वा Microsoft Edge प्रयोग गर्नुहोस् ।"
-        );
-      }
-
-      try {
-        localFaceDetector = new FaceDetector({
-          fastMode: false,
-          maxDetectedFaces: 2
-        });
-        return localFaceDetector;
-      } catch (e) {
-        throw new Error("Browser Face Check initialize हुन सकेन । कृपया Chrome/Edge update गरेर फेरि प्रयास गर्नुहोस् ।");
-      }
-    }
-
-    async function detectFacesLocally_(canvas) {
-      const detector = getLocalFaceDetector_();
-      try {
-        const faces = await detector.detect(canvas);
-        return Array.isArray(faces) ? faces : [];
-      } catch (e) {
-        throw new Error("Photo को face check गर्न सकिएन । कृपया अर्को clear photo वा updated Chrome/Edge प्रयोग गर्नुहोस् ।");
-      }
-    }
-
     function computePhotoBrightness_(canvas) {
       const w=Math.min(canvas.width,320), h=Math.min(canvas.height,320);
       const temp=document.createElement("canvas");
@@ -2751,14 +2719,35 @@
       return (sumSq/n)-(mean*mean);
     }
 
+    function computePhotoColorfulness_(canvas) {
+      const w=Math.min(canvas.width,240), h=Math.min(canvas.height,240);
+      const temp=document.createElement("canvas");
+      temp.width=w; temp.height=h;
+      const ctx=temp.getContext("2d",{willReadFrequently:true});
+      ctx.drawImage(canvas,0,0,w,h);
+      const d=ctx.getImageData(0,0,w,h).data;
+      let sum=0,n=0;
+      for(let i=0;i<d.length;i+=16){
+        const r=d[i], g=d[i+1], b=d[i+2];
+        sum += Math.max(r,g,b)-Math.min(r,g,b);
+        n++;
+      }
+      return n ? sum/n : 0;
+    }
+
     async function validateOfficialPhotoLocally_(img,canvas) {
       if(img.naturalWidth<400 || img.naturalHeight<400){
         throw new Error("Photo resolution कम्तीमा 400×400 px हुनुपर्छ ।");
       }
 
+      const ratio=img.naturalWidth/img.naturalHeight;
+      if(ratio<0.45 || ratio>2.2){
+        throw new Error("Photo को आकार असामान्य छ । कृपया सामान्य profile photo upload गर्नुहोस् ।");
+      }
+
       const brightness=computePhotoBrightness_(canvas);
       if(brightness<55){
-        throw new Error("Photo धेरै dark छ । कृपया राम्रो प्रकाश भएको official photo upload गर्नुहोस् ।");
+        throw new Error("Photo धेरै dark छ । कृपया राम्रो प्रकाश भएको clear photo upload गर्नुहोस् ।");
       }
       if(brightness>235){
         throw new Error("Photo धेरै overexposed/उज्यालो छ । कृपया अर्को clear photo upload गर्नुहोस् ।");
@@ -2766,43 +2755,12 @@
 
       const sharpness=computePhotoSharpness_(canvas);
       if(sharpness<80){
-        throw new Error("Photo blur/unclear देखिन्छ । कृपया clear official photo upload गर्नुहोस् ।");
+        throw new Error("Photo blur/unclear देखिन्छ । कृपया clear photo upload गर्नुहोस् ।");
       }
 
-      const faces=await detectFacesLocally_(canvas);
-
-      if(!Array.isArray(faces) || faces.length===0){
-        throw new Error("Photo मा स्पष्ट मानव अनुहार भेटिएन । कृपया official profile photo upload गर्नुहोस् ।");
-      }
-      if(faces.length>1){
-        throw new Error("Photo मा एकभन्दा बढी व्यक्ति भेटिए । एकजना सदस्यको मात्र photo upload गर्नुहोस् ।");
-      }
-
-      const f=faces[0] || {};
-      const box=f.boundingBox || {};
-      const x1=Number(box.x||0), y1=Number(box.y||0);
-      const fw=Math.max(0,Number(box.width||0)), fh=Math.max(0,Number(box.height||0));
-      const x2=x1+fw, y2=y1+fh;
-      const faceRatio=(fw*fh)/Math.max(1,canvas.width*canvas.height);
-
-      if(fw<100 || fh<100 || faceRatio<0.07){
-        throw new Error("Photo मा अनुहार धेरै सानो छ । Face स्पष्ट देखिने profile photo upload गर्नुहोस् ।");
-      }
-      if(faceRatio>0.65){
-        throw new Error("Photo अत्यधिक close-up/selfie crop जस्तो छ । Proper profile framing भएको photo upload गर्नुहोस् ।");
-      }
-
-      const cx=(x1+x2)/2, cy=(y1+y2)/2;
-      const dx=Math.abs(cx-canvas.width/2)/canvas.width;
-      const dy=Math.abs(cy-canvas.height/2)/canvas.height;
-      if(dx>0.22 || dy>0.22){
-        throw new Error("Face photo को center मा छैन । कृपया centered official photo upload गर्नुहोस् ।");
-      }
-
-      const edgeMarginX=Math.max(8,canvas.width*0.015);
-      const edgeMarginY=Math.max(8,canvas.height*0.015);
-      if(x1<=edgeMarginX || y1<=edgeMarginY || x2>=canvas.width-edgeMarginX || y2>=canvas.height-edgeMarginY){
-        throw new Error("Head/face crop भएको देखिन्छ । पूरा टाउको र अनुहार स्पष्ट देखिने photo upload गर्नुहोस् ।");
+      const colorfulness=computePhotoColorfulness_(canvas);
+      if(colorfulness<4){
+        throw new Error("Black & white वा अत्यन्त कम रंग भएको photo स्वीकार हुँदैन । कृपया रंगीन photo upload गर्नुहोस् ।");
       }
 
       return true;
@@ -2835,7 +2793,7 @@
             work.getContext("2d").drawImage(img,0,0);
 
             document.getElementById(previewElementId).innerHTML =
-              '<div class="loading-wrap"><span class="spinner"></span><span class="loading-text">System Photo Check हुँदैछ...</span></div>';
+              '<div class="loading-wrap"><span class="spinner"></span><span class="loading-text">Photo quality check हुँदैछ...</span></div>';
 
             await validateOfficialPhotoLocally_(img,work);
 
@@ -2861,7 +2819,7 @@
 
             document.getElementById(previewElementId).innerHTML='<img src="'+jpeg+'" alt="Preview">';
             callback(b64);
-            showCustomMessage("System Photo Check PASS भयो । अब OTP verify गरेर photo upload गर्न सक्नुहुन्छ ।");
+            showCustomMessage("Photo quality check PASS भयो । अब OTP verify गरेर photo upload गर्न सक्नुहुन्छ ।");
 
           }catch(err){
             photoBase64ForUpload="";
