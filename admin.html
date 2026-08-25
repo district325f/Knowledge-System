@@ -1275,11 +1275,6 @@
           <button class="secondary" onclick="loadSystemBackups()">Refresh History</button>
         </div>
 
-        <div class="notice" style="margin-top:14px;">
-          Automatic daily backup enable गर्न Apps Script editor बाट
-          <b>setupLKSDailySystemBackupTrigger()</b> एकपटक Run गर्नुहोस् ।
-          यसले daily करिब 2 AM मा backup बनाउँछ र latest 30 backup files राख्छ ।
-        </div>
       </div>
 
       <div class="card">
@@ -2014,7 +2009,7 @@ async function loadSystemBackups() {
             : '')+
           (String(r.status||'').toUpperCase()!=='DELETED'
             ? '<button class="danger" onclick="restoreSystemBackup(\''+escAttr(r.backupId||'')+'\')">Restore</button>'+
-              '<button class="secondary" onclick="deleteSystemBackup(\''+escAttr(r.backupId||'')+'\')">Delete Backup</button>'
+              '<button class="secondary" onclick="deleteSystemBackup(\''+escAttr(r.backupId||'')+'\')">Delete Backup Data</button>'
             : '<span class="badge">Deleted</span>')+
         '</td>'+
       '</tr>';
@@ -2035,7 +2030,7 @@ function deleteSystemBackup(backupId) {
   const typed=prompt(
     '🗑 DELETE BACKUP\n\n'+
     'Backup: '+info+'\n\n'+
-    'यसले backup file लाई Google Drive Trash मा पठाउँछ ।\n'+
+    'यसले backup file लाई Google Drive Trash मा पठाउँछ र Version History बाट पनि हटाउँछ ।\n'+
     'Delete confirm गर्न DELETE लेख्नुहोस्:'
   );
 
@@ -2046,13 +2041,13 @@ function deleteSystemBackup(backupId) {
 
   universalConfirm(
     'Final Backup Delete Confirmation',
-    'यो backup Drive Trash मा पठाउने हो ?\n\nBackup ID: '+backupId+
+    'यो backup data Drive Trash मा पठाएर Version History बाट हटाउने हो ?\n\nBackup ID: '+backupId+
     '\n\nTrash permanently empty नगरेसम्म storage तुरुन्त free नहुन सक्छ ।',
     async function(){
       try {
         const res=await api('superAdminDeleteSystemBackup',[sessionToken,backupId,'DELETE']);
         await loadSystemBackups();
-        message(res&&res.message ? res.message : 'Backup delete भयो ।');
+        message(res&&res.message ? res.message : 'Backup data delete भयो ।');
       } catch(e) {
         message(e.message||e);
       }
