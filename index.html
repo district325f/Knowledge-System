@@ -3931,6 +3931,69 @@
 
     var memberSelfToken = "";
     var memberSelfFieldsCache = [];
+    var memberSelfDraftCache = {};
+
+    function memberSelfDraftStorageKey_() {
+      return currentMemberData && currentMemberData.memberId
+        ? "LKS_MEMBER_PROFILE_DRAFT_" + String(currentMemberData.memberId)
+        : "";
+    }
+
+    function collectMemberSelfDraft_() {
+      var draft = {};
+      document.querySelectorAll("#memberSelfFields [data-self-field]").forEach(function(el) {
+        draft[el.getAttribute("data-self-field")] = el.value;
+      });
+      memberSelfDraftCache = draft;
+
+      var key = memberSelfDraftStorageKey_();
+      if (key) {
+        try {
+          localStorage.setItem(key, JSON.stringify({
+            savedAt: Date.now(),
+            values: draft
+          }));
+        } catch (e) {}
+      }
+      return draft;
+    }
+
+    function loadMemberSelfLocalDraft_() {
+      var key = memberSelfDraftStorageKey_();
+      if (!key) return {};
+      try {
+        var raw = localStorage.getItem(key);
+        if (!raw) return {};
+        var parsed = JSON.parse(raw);
+        return parsed && parsed.values ? parsed.values : {};
+      } catch (e) {
+        return {};
+      }
+    }
+
+    function clearMemberSelfDraft_() {
+      memberSelfDraftCache = {};
+      var key = memberSelfDraftStorageKey_();
+      if (key) {
+        try { localStorage.removeItem(key); } catch (e) {}
+      }
+    }
+
+    function enableMemberSelfReverify_(messageText) {
+      collectMemberSelfDraft_();
+      memberSelfToken = "";
+
+      document.getElementById("memberSelfVerifyArea").style.display = "block";
+      document.getElementById("memberSelfEditArea").style.display = "block";
+      document.getElementById("memberSelfOtp").value = "";
+      document.getElementById("memberSelfSendOtpBtn").style.display = "inline-block";
+      document.getElementById("memberSelfVerifyBtn").style.display = "block";
+
+      showCustomMessage(
+        (messageText || "Verification session expire भएको छ ।") +
+        "\n\nतपाईंले टाइप गरेको data यही form मा सुरक्षित छ । OTP फेरि verify गरेपछि यही data submit गर्न सकिन्छ ।"
+      );
+    }
 
     function openMemberSelfUpdate() {
       if (!currentMemberData || !currentMemberData.memberId) {
@@ -3966,6 +4029,9 @@
     }
 
     function closeMemberSelfUpdate() {
+      if (document.getElementById("memberSelfEditArea").style.display !== "none") {
+        collectMemberSelfDraft_();
+      }
       document.getElementById("memberSelfUpdatePanel").style.display = "none";
       memberSelfToken = "";
       memberSelfFieldsCache = [];
@@ -4010,10 +4076,33 @@
 
           memberSelfToken = res.token || "";
           memberSelfFieldsCache = res.fields || [];
+
+          var localDraft = Object.keys(memberSelfDraftCache || {}).length
+            ? memberSelfDraftCache
+            : loadMemberSelfLocalDraft_();
+
+          if (localDraft && Object.keys(localDraft).length) {
+            memberSelfFieldsCache = memberSelfFieldsCache.map(function(f) {
+              var copy = Object.assign({}, f);
+              if (Object.prototype.hasOwnProperty.call(localDraft, f.key)) {
+                copy.value = localDraft[f.key];
+              }
+              return copy;
+            });
+          }
+
           document.getElementById("memberSelfVerifyArea").style.display = "none";
           document.getElementById("memberSelfEditArea").style.display = "block";
           renderMemberSelfFields();
-          showCustomMessage("OTP verified भयो । अब आफ्नो profile update request तयार गर्नुहोस् ।");
+
+          document.querySelectorAll("#memberSelfFields [data-self-field]").forEach(function(el) {
+            el.addEventListener("input", collectMemberSelfDraft_);
+          });
+
+          showCustomMessage(
+            "OTP verified भयो । Verification session 30 मिनेटसम्म valid हुन्छ ।\n" +
+            "तपाईंको draft data सुरक्षित छ । अब Update Request पठाउनुहोस् ।"
+          );
         })
         .withFailureHandler(function(err) {
           setBtnLoading("memberSelfVerifyBtn", false, "", "OTP Verify गर्नुहोस्");
@@ -4043,18 +4132,19 @@
           control +
           '</div>';
       }).join('');
+
+      document.querySelectorAll("#memberSelfFields [data-self-field]").forEach(function(el) {
+        el.addEventListener("input", collectMemberSelfDraft_);
+      });
     }
 
     function submitMemberSelfUpdate() {
+      var changes = collectMemberSelfDraft_();
+
       if (!currentMemberData || !currentMemberData.memberId || !memberSelfToken) {
-        showCustomMessage("Verification session छैन । OTP फेरि verify गर्नुहोस् ।");
+        enableMemberSelfReverify_("Verification session छैन वा expire भएको छ ।");
         return;
       }
-
-      var changes = {};
-      document.querySelectorAll("#memberSelfFields [data-self-field]").forEach(function(el) {
-        changes[el.getAttribute("data-self-field")] = el.value;
-      });
 
       var confirmText =
         "Member ID: " + currentMemberData.memberId + "\n\n" +
@@ -4069,6 +4159,7 @@
         .withSuccessHandler(function(res) {
           setBtnLoading("memberSelfSubmitBtn", false, "", "Update Request पठाउनुहोस्");
           memberSelfToken = "";
+          clearMemberSelfDraft_();
           document.getElementById("memberSelfUpdatePanel").style.display = "none";
           showCustomMessage(
             "Update request सफलतापूर्वक पठाइयो ।\nRequest ID: " + (res.requestId || "") +
@@ -4077,7 +4168,14 @@
         })
         .withFailureHandler(function(err) {
           setBtnLoading("memberSelfSubmitBtn", false, "", "Update Request पठाउनुहोस्");
-          showCustomMessage("Request पठाउन सकिएन: " + (err && err.message ? err.message : err));
+          var msg = err && err.message ? err.message : String(err || "");
+
+          if (/Verification session|session expire|OTP फेरि verify/i.test(msg)) {
+            enableMemberSelfReverify_(msg);
+            return;
+          }
+
+          showCustomMessage("Request पठाउन सकिएन: " + msg);
         })
         .submitMemberSelfUpdateRequest(currentMemberData.memberId, memberSelfToken, changes);
     }
