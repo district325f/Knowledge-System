@@ -2711,7 +2711,7 @@
           canvas.height = h;
           canvas.getContext("2d").drawImage(img, 0, 0, w, h);
 
-          // JPEG compression also reduces Gemini payload and quota pressure.
+          // JPEG compression also reduces Cloud Vision payload and quota pressure.
           const jpegData = canvas.toDataURL("image/jpeg", 0.86);
 
           // Final compressed payload guard.
@@ -2816,13 +2816,13 @@
       if (!currentMemberData) { showCustomMessage("पहिला Member Search गर्नुहोस् ।"); return; }
       if (!isPhotoOtpVerified) { showCustomMessage("पहिला OTP verify गर्नुहोस् ।"); return; }
       if (!photoBase64ForUpload) { showCustomMessage("पहिला फोटो select गर्नुहोस् ।"); return; }
-      document.getElementById("photoPreview").innerHTML = '<div class="loading-wrap"><span class="spinner"></span><span class="loading-text">Gemini Photo Security Check हुँदैछ...</span></div>';
+      document.getElementById("photoPreview").innerHTML = '<div class="loading-wrap"><span class="spinner"></span><span class="loading-text">Official Photo Security Check हुँदैछ...</span></div>';
       google.script.run.withSuccessHandler(function(){
           showCustomMessage("Photo सफलतापूर्वक update भयो ।");
           searchMemberData(); closePhotoUpdatePanel(); document.getElementById("photoPreview").innerHTML = ""; fileInput.value = ""; isPhotoOtpVerified = false; photoBase64ForUpload = "";
         }).withFailureHandler(function(err){
           document.getElementById("photoPreview").innerHTML = "";
-          showCustomMessage("Gemini quota limit पुगेको छ । केही समयपछि फेरि प्रयास गर्नुहोस् ।");
+          showCustomMessage("Cloud Vision quota limit पुगेको छ । केही समयपछि फेरि प्रयास गर्नुहोस् ।");
         })
         .verifyPhotoOtpAndUpload(currentMemberData.memberId, email, otp, photoBase64ForUpload);
     }
@@ -2952,13 +2952,13 @@
       if (!mobileUploadMemberId) { showCustomMessage("Member ID missing छ ।"); return; }
       if (!isMobileOtpVerified) { showCustomMessage("पहिला OTP verify गर्नुहोस् ।"); return; }
       if (!mobilePhotoBase64ForUpload) { showCustomMessage("पहिला फोटो खिच्नुहोस्/छान्नुहोस् ।"); return; }
-      document.getElementById("mobilePhotoPreview").innerHTML = '<div class="loading-wrap"><span class="spinner"></span><span class="loading-text">Gemini Photo Security Check हुँदैछ...</span></div>';
+      document.getElementById("mobilePhotoPreview").innerHTML = '<div class="loading-wrap"><span class="spinner"></span><span class="loading-text">Official Photo Security Check हुँदैछ...</span></div>';
       google.script.run.withSuccessHandler(function(){
           showCustomMessage("Photo सफलतापूर्वक update भयो ।"); document.getElementById("mobilePhotoPreview").innerHTML = ""; input.value = ""; isMobileOtpVerified = false; mobilePhotoBase64ForUpload = "";
           if (mobileCameraStream) { mobileCameraStream.getTracks().forEach(function(t){ t.stop(); }); mobileCameraStream = null; }
         }).withFailureHandler(function(err){
           document.getElementById("mobilePhotoPreview").innerHTML = "";
-          showCustomMessage("Gemini quota limit पुगेको छ । केही समयपछि फेरि प्रयास गर्नुहोस् ।");
+          showCustomMessage("Cloud Vision quota limit पुगेको छ । केही समयपछि फेरि प्रयास गर्नुहोस् ।");
         })
         .verifyPhotoOtpAndUpload(mobileUploadMemberId, email, otp, mobilePhotoBase64ForUpload);
     }
