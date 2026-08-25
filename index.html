@@ -2286,21 +2286,7 @@
       }
     }
   </style>
-
-  <!-- Local browser photo validation: no API key/quota -->
-  <script>
-    window.LKS_FACE_LIB_SOURCES = {
-      tf: [
-        "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js",
-        "https://unpkg.com/@tensorflow/tfjs@4.22.0/dist/tf.min.js"
-      ],
-      blazeface: [
-        "https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface@0.1.0/dist/blazeface.min.js",
-        "https://unpkg.com/@tensorflow-models/blazeface@0.1.0/dist/blazeface.min.js"
-      ]
-    };
-  </script>
-
+  <!-- Local browser photo validation: no API key, no cloud AI, no external face-model CDN -->
 </head>
 <body>
   <div class="container">
@@ -2691,159 +2677,35 @@
     function closePhotoUpdatePanel() { document.getElementById("photoUpdatePanel").style.display = "none"; }
 
 
-    let localFaceModel = null;
-    let localFaceModelLoading = null;
-    let localFaceLibLoading = null;
+    let localFaceDetector = null;
 
-    function loadExternalScript_(src, globalCheck, timeoutMs) {
-      return new Promise(function(resolve, reject) {
-        try {
-          if (typeof globalCheck === "function" && globalCheck()) {
-            resolve(true);
-            return;
-          }
+    function getLocalFaceDetector_() {
+      if (localFaceDetector) return localFaceDetector;
 
-          const existing = Array.from(document.scripts || []).find(function(s) {
-            return String(s.src || "") === String(src || "");
-          });
-
-          let script = existing;
-          if (!script) {
-            script = document.createElement("script");
-            script.src = src;
-            script.async = true;
-            script.crossOrigin = "anonymous";
-            document.head.appendChild(script);
-          }
-
-          let done = false;
-          const finish = function(ok, err) {
-            if (done) return;
-            done = true;
-            clearTimeout(timer);
-            if (ok) resolve(true);
-            else reject(err || new Error("Script load failed"));
-          };
-
-          script.addEventListener("load", function() {
-            setTimeout(function() {
-              finish(
-                typeof globalCheck !== "function" || globalCheck(),
-                new Error("Library loaded but global object missing")
-              );
-            }, 50);
-          }, { once: true });
-
-          script.addEventListener("error", function() {
-            finish(false, new Error("Script load error"));
-          }, { once: true });
-
-          const timer = setTimeout(function() {
-            finish(false, new Error("Script load timeout"));
-          }, Number(timeoutMs || 12000));
-
-          if (typeof globalCheck === "function" && globalCheck()) {
-            finish(true);
-          }
-        } catch (e) {
-          reject(e);
-        }
-      });
-    }
-
-    async function loadFirstAvailableScript_(sources, globalCheck) {
-      let lastError = null;
-
-      for (let i = 0; i < (sources || []).length; i++) {
-        try {
-          await loadExternalScript_(sources[i], globalCheck, 12000);
-          if (typeof globalCheck !== "function" || globalCheck()) return true;
-        } catch (e) {
-          lastError = e;
-        }
+      if (!("FaceDetector" in window)) {
+        throw new Error(
+          "यो browser मा built-in Face Check उपलब्ध छैन । कृपया updated Google Chrome वा Microsoft Edge प्रयोग गर्नुहोस् ।"
+        );
       }
 
-      throw lastError || new Error("Library load failed");
-    }
-
-    async function ensureLocalFaceLibraries_() {
-      if (window.tf && window.blazeface) return true;
-      if (localFaceLibLoading) return localFaceLibLoading;
-
-      localFaceLibLoading = (async function() {
-        const sources = window.LKS_FACE_LIB_SOURCES || {};
-
-        if (!window.tf) {
-          await loadFirstAvailableScript_(
-            sources.tf || [],
-            function() { return !!window.tf; }
-          );
-        }
-
-        if (!window.tf) {
-          throw new Error("TensorFlow.js load हुन सकेन ।");
-        }
-
-        try {
-          await window.tf.ready();
-        } catch (e) {
-          throw new Error("TensorFlow.js initialize हुन सकेन ।");
-        }
-
-        if (!window.blazeface) {
-          await loadFirstAvailableScript_(
-            sources.blazeface || [],
-            function() { return !!window.blazeface; }
-          );
-        }
-
-        if (!window.blazeface) {
-          throw new Error("BlazeFace model library load हुन सकेन ।");
-        }
-
-        return true;
-      })();
-
       try {
-        return await localFaceLibLoading;
-      } finally {
-        localFaceLibLoading = null;
+        localFaceDetector = new FaceDetector({
+          fastMode: false,
+          maxDetectedFaces: 2
+        });
+        return localFaceDetector;
+      } catch (e) {
+        throw new Error("Browser Face Check initialize हुन सकेन । कृपया Chrome/Edge update गरेर फेरि प्रयास गर्नुहोस् ।");
       }
     }
 
-    async function getLocalFaceModel_() {
-      if (localFaceModel) return localFaceModel;
-      if (localFaceModelLoading) return localFaceModelLoading;
-
-      localFaceModelLoading = (async function() {
-        try {
-          await ensureLocalFaceLibraries_();
-
-          if (!window.tf || !window.blazeface) {
-            throw new Error("Face Check library उपलब्ध भएन ।");
-          }
-
-          await window.tf.ready();
-          localFaceModel = await window.blazeface.load();
-
-          if (!localFaceModel) {
-            throw new Error("Face Check model initialize हुन सकेन ।");
-          }
-
-          return localFaceModel;
-        } catch (e) {
-          const detail = e && e.message ? e.message : String(e || "");
-          throw new Error(
-            "System Face Check load हुन सकेन । Internet connection check गरेर फेरि प्रयास गर्नुहोस् ।" +
-            (detail ? " (" + detail + ")" : "")
-          );
-        }
-      })();
-
+    async function detectFacesLocally_(canvas) {
+      const detector = getLocalFaceDetector_();
       try {
-        return await localFaceModelLoading;
-      } finally {
-        localFaceModelLoading = null;
+        const faces = await detector.detect(canvas);
+        return Array.isArray(faces) ? faces : [];
+      } catch (e) {
+        throw new Error("Photo को face check गर्न सकिएन । कृपया अर्को clear photo वा updated Chrome/Edge प्रयोग गर्नुहोस् ।");
       }
     }
 
@@ -2907,8 +2769,7 @@
         throw new Error("Photo blur/unclear देखिन्छ । कृपया clear official photo upload गर्नुहोस् ।");
       }
 
-      const model=await getLocalFaceModel_();
-      const faces=await model.estimateFaces(canvas,false);
+      const faces=await detectFacesLocally_(canvas);
 
       if(!Array.isArray(faces) || faces.length===0){
         throw new Error("Photo मा स्पष्ट मानव अनुहार भेटिएन । कृपया official profile photo upload गर्नुहोस् ।");
@@ -2917,11 +2778,11 @@
         throw new Error("Photo मा एकभन्दा बढी व्यक्ति भेटिए । एकजना सदस्यको मात्र photo upload गर्नुहोस् ।");
       }
 
-      const f=faces[0];
-      const tl=f.topLeft||[0,0], br=f.bottomRight||[0,0];
-      const x1=Number(tl[0]||0), y1=Number(tl[1]||0);
-      const x2=Number(br[0]||0), y2=Number(br[1]||0);
-      const fw=Math.max(0,x2-x1), fh=Math.max(0,y2-y1);
+      const f=faces[0] || {};
+      const box=f.boundingBox || {};
+      const x1=Number(box.x||0), y1=Number(box.y||0);
+      const fw=Math.max(0,Number(box.width||0)), fh=Math.max(0,Number(box.height||0));
+      const x2=x1+fw, y2=y1+fh;
       const faceRatio=(fw*fh)/Math.max(1,canvas.width*canvas.height);
 
       if(fw<100 || fh<100 || faceRatio<0.07){
@@ -2938,28 +2799,10 @@
         throw new Error("Face photo को center मा छैन । कृपया centered official photo upload गर्नुहोस् ।");
       }
 
-      const lm=Array.isArray(f.landmarks)?f.landmarks:[];
-      if(lm.length>=4){
-        const reye=lm[0], leye=lm[1], nose=lm[2], mouth=lm[3];
-        const eyeDx=Math.abs(Number(leye[0])-Number(reye[0]));
-        const eyeDy=Math.abs(Number(leye[1])-Number(reye[1]));
-
-        if(eyeDx>0 && eyeDy/eyeDx>0.22){
-          throw new Error("Head/face धेरै tilted देखिन्छ । कृपया straight official photo upload गर्नुहोस् ।");
-        }
-
-        const eyeMidX=(Number(leye[0])+Number(reye[0]))/2;
-        const eyeMidY=(Number(leye[1])+Number(reye[1]))/2;
-        const noseDx=Math.abs(Number(nose[0])-eyeMidX)/Math.max(1,fw);
-        const mouthDx=Math.abs(Number(mouth[0])-eyeMidX)/Math.max(1,fw);
-
-        if(noseDx>0.16 || mouthDx>0.18){
-          throw new Error("Face धेरै side angle मा देखिन्छ । कृपया अगाडिबाट खिचिएको official photo upload गर्नुहोस् ।");
-        }
-
-        if(Number(nose[1])<=eyeMidY || Number(mouth[1])<=Number(nose[1])){
-          throw new Error("Face landmarks स्पष्ट छैनन् । कृपया अर्को clear official photo upload गर्नुहोस् ।");
-        }
+      const edgeMarginX=Math.max(8,canvas.width*0.015);
+      const edgeMarginY=Math.max(8,canvas.height*0.015);
+      if(x1<=edgeMarginX || y1<=edgeMarginY || x2>=canvas.width-edgeMarginX || y2>=canvas.height-edgeMarginY){
+        throw new Error("Head/face crop भएको देखिन्छ । पूरा टाउको र अनुहार स्पष्ट देखिने photo upload गर्नुहोस् ।");
       }
 
       return true;
@@ -4764,14 +4607,7 @@
 
       showHomeScreen();
     };
-  
-    // Warm-up local face libraries in the background.
-    window.addEventListener("load", function() {
-      setTimeout(function() {
-        ensureLocalFaceLibraries_().catch(function(err) {
-          console.warn("Face Check warm-up failed; selection will retry.", err);
-        });
-      }, 600);
+}, 600);
     });
 
 </script>
