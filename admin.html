@@ -2154,12 +2154,29 @@ async function saveModuleRecord(moduleKey) {
   const box=document.getElementById(prefix+'Editor');
   const payload={rowNumber:Number(document.getElementById(prefix+'EditRow').value||0)};
   box.querySelectorAll('[data-edit-field]').forEach(el=>payload[el.dataset.editField]=el.value);
+
+  const saveBtn=box ? box.querySelector('button.primary') : null;
+  const oldHtml=saveBtn ? saveBtn.innerHTML : 'Save';
+  if(saveBtn) {
+    saveBtn.disabled=true;
+    saveBtn.classList.add('ui-busy');
+    saveBtn.innerHTML='<span class="spinner"></span>Save हुँदैछ...';
+  }
+
   try {
     await api('adminSaveModuleRecord',[sessionToken,moduleKey,payload]);
     closeModuleEditor(moduleKey);
     await loadModuleList(moduleKey,1);
     message('Record सफलतापूर्वक save भयो ।');
-  } catch(e) { message(e.message||e); }
+  } catch(e) {
+    message(e.message||e);
+  } finally {
+    if(saveBtn && document.body.contains(saveBtn)) {
+      saveBtn.disabled=false;
+      saveBtn.classList.remove('ui-busy');
+      saveBtn.innerHTML=oldHtml;
+    }
+  }
 }
 
 async function deleteModuleRecord(moduleKey,rowNumber) {
