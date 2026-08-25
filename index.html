@@ -4016,8 +4016,10 @@
     }
 
     function searchMemberData() {
-      var memberId = document.getElementById("memberIdInput").value.trim();
+      var memberIdInput = document.getElementById("memberIdInput");
+      var memberId = memberIdInput ? memberIdInput.value.trim() : "";
       var resultDiv = document.getElementById("memberResult");
+      var searchBtn = document.getElementById("memberSearchBtn");
 
       if (!memberId) {
         resultDiv.innerHTML = '<div class="empty">कृपया Member ID लेख्नुहोस् ।</div>';
@@ -4025,10 +4027,51 @@
         return;
       }
 
-      resultDiv.innerHTML = '<div class="loading-wrap"><span class="spinner"></span><span class="loading-text">Member detail लोड हुँदैछ...</span></div>';
+      var originalBtnHtml = searchBtn ? searchBtn.innerHTML : "Search Member";
+      if (searchBtn) {
+        searchBtn.disabled = true;
+        searchBtn.style.pointerEvents = "none";
+        searchBtn.style.opacity = ".72";
+        searchBtn.innerHTML = '<span class="spinner"></span> Search हुँदैछ...';
+      }
+
+      resultDiv.innerHTML =
+        '<div class="loading-wrap">' +
+          '<span class="spinner"></span>' +
+          '<span class="loading-text">Member detail लोड हुँदैछ...</span>' +
+        '</div>';
+
+      var completed = false;
+      var timeoutId = setTimeout(function() {
+        if (completed) return;
+        completed = true;
+        currentMemberData = null;
+        if (searchBtn) {
+          searchBtn.disabled = false;
+          searchBtn.style.pointerEvents = "auto";
+          searchBtn.style.opacity = "1";
+          searchBtn.innerHTML = originalBtnHtml;
+        }
+        resultDiv.innerHTML =
+          '<div class="empty">Member Search ले समयमै response दिएन । कृपया फेरि Search गर्नुहोस् ।</div>';
+      }, 25000);
+
+      function finishMemberSearchButton_() {
+        if (searchBtn) {
+          searchBtn.disabled = false;
+          searchBtn.style.pointerEvents = "auto";
+          searchBtn.style.opacity = "1";
+          searchBtn.innerHTML = originalBtnHtml;
+        }
+      }
 
       google.script.run
         .withSuccessHandler(function(data) {
+          if (completed) return;
+          completed = true;
+          clearTimeout(timeoutId);
+          finishMemberSearchButton_();
+
           if (!data) {
             resultDiv.innerHTML = '<div class="empty">यो Member ID को सदस्य भेटिएन ।</div>';
             currentMemberData = null;
@@ -4065,8 +4108,15 @@
             '</div>';
         })
         .withFailureHandler(function(error) {
+          if (completed) return;
+          completed = true;
+          clearTimeout(timeoutId);
+          finishMemberSearchButton_();
           currentMemberData = null;
-          resultDiv.innerHTML = '<div class="empty">Error: ' + escapeHtmlClient(error && error.message ? error.message : error) + '</div>';
+          resultDiv.innerHTML =
+            '<div class="empty">Search Error: ' +
+            escapeHtmlClient(error && error.message ? error.message : error) +
+            '</div>';
         })
         .searchMember(memberId);
     }
