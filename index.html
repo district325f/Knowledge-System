@@ -2288,8 +2288,18 @@
   </style>
 
   <!-- Local browser photo validation: no API key/quota -->
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface@0.1.0/dist/blazeface.min.js"></script>
+  <script>
+    window.LKS_FACE_LIB_SOURCES = {
+      tf: [
+        "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js",
+        "https://unpkg.com/@tensorflow/tfjs@4.22.0/dist/tf.min.js"
+      ],
+      blazeface: [
+        "https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface@0.1.0/dist/blazeface.min.js",
+        "https://unpkg.com/@tensorflow-models/blazeface@0.1.0/dist/blazeface.min.js"
+      ]
+    };
+  </script>
 
 </head>
 <body>
@@ -2683,18 +2693,151 @@
 
     let localFaceModel = null;
     let localFaceModelLoading = null;
+    let localFaceLibLoading = null;
+
+    function loadExternalScript_(src, globalCheck, timeoutMs) {
+      return new Promise(function(resolve, reject) {
+        try {
+          if (typeof globalCheck === "function" && globalCheck()) {
+            resolve(true);
+            return;
+          }
+
+          const existing = Array.from(document.scripts || []).find(function(s) {
+            return String(s.src || "") === String(src || "");
+          });
+
+          let script = existing;
+          if (!script) {
+            script = document.createElement("script");
+            script.src = src;
+            script.async = true;
+            script.crossOrigin = "anonymous";
+            document.head.appendChild(script);
+          }
+
+          let done = false;
+          const finish = function(ok, err) {
+            if (done) return;
+            done = true;
+            clearTimeout(timer);
+            if (ok) resolve(true);
+            else reject(err || new Error("Script load failed"));
+          };
+
+          script.addEventListener("load", function() {
+            setTimeout(function() {
+              finish(
+                typeof globalCheck !== "function" || globalCheck(),
+                new Error("Library loaded but global object missing")
+              );
+            }, 50);
+          }, { once: true });
+
+          script.addEventListener("error", function() {
+            finish(false, new Error("Script load error"));
+          }, { once: true });
+
+          const timer = setTimeout(function() {
+            finish(false, new Error("Script load timeout"));
+          }, Number(timeoutMs || 12000));
+
+          if (typeof globalCheck === "function" && globalCheck()) {
+            finish(true);
+          }
+        } catch (e) {
+          reject(e);
+        }
+      });
+    }
+
+    async function loadFirstAvailableScript_(sources, globalCheck) {
+      let lastError = null;
+
+      for (let i = 0; i < (sources || []).length; i++) {
+        try {
+          await loadExternalScript_(sources[i], globalCheck, 12000);
+          if (typeof globalCheck !== "function" || globalCheck()) return true;
+        } catch (e) {
+          lastError = e;
+        }
+      }
+
+      throw lastError || new Error("Library load failed");
+    }
+
+    async function ensureLocalFaceLibraries_() {
+      if (window.tf && window.blazeface) return true;
+      if (localFaceLibLoading) return localFaceLibLoading;
+
+      localFaceLibLoading = (async function() {
+        const sources = window.LKS_FACE_LIB_SOURCES || {};
+
+        if (!window.tf) {
+          await loadFirstAvailableScript_(
+            sources.tf || [],
+            function() { return !!window.tf; }
+          );
+        }
+
+        if (!window.tf) {
+          throw new Error("TensorFlow.js load हुन सकेन ।");
+        }
+
+        try {
+          await window.tf.ready();
+        } catch (e) {
+          throw new Error("TensorFlow.js initialize हुन सकेन ।");
+        }
+
+        if (!window.blazeface) {
+          await loadFirstAvailableScript_(
+            sources.blazeface || [],
+            function() { return !!window.blazeface; }
+          );
+        }
+
+        if (!window.blazeface) {
+          throw new Error("BlazeFace model library load हुन सकेन ।");
+        }
+
+        return true;
+      })();
+
+      try {
+        return await localFaceLibLoading;
+      } finally {
+        localFaceLibLoading = null;
+      }
+    }
 
     async function getLocalFaceModel_() {
       if (localFaceModel) return localFaceModel;
       if (localFaceModelLoading) return localFaceModelLoading;
 
       localFaceModelLoading = (async function() {
-        if (!window.tf || !window.blazeface) {
-          throw new Error("System Face Check load हुन सकेन । Internet connection check गरेर फेरि प्रयास गर्नुहोस् ।");
+        try {
+          await ensureLocalFaceLibraries_();
+
+          if (!window.tf || !window.blazeface) {
+            throw new Error("Face Check library उपलब्ध भएन ।");
+          }
+
+          await window.tf.ready();
+          localFaceModel = await window.blazeface.load();
+
+          if (!localFaceModel) {
+            throw new Error("Face Check model initialize हुन सकेन ।");
+          }
+
+          return localFaceModel;
+        } catch (e) {
+          const detail = e && e.message ? e.message : String(e || "");
+          throw new Error(
+            "System Face Check load हुन सकेन । Internet connection check गरेर फेरि प्रयास गर्नुहोस् ।" +
+            (detail ? " (" + detail + ")" : "")
+          );
         }
-        await tf.ready();
-        localFaceModel = await blazeface.load();
-        return localFaceModel;
       })();
 
       try {
@@ -2979,7 +3122,8 @@
           searchMemberData(); closePhotoUpdatePanel(); document.getElementById("photoPreview").innerHTML = ""; fileInput.value = ""; isPhotoOtpVerified = false; photoBase64ForUpload = "";
         }).withFailureHandler(function(err){
           document.getElementById("photoPreview").innerHTML = "";
-          showCustomMessage("Cloud Vision quota limit पुगेको छ । केही समयपछि फेरि प्रयास गर्नुहोस् ।");
+          const msg = err && err.message ? err.message : String(err || "Photo upload error");
+          showCustomMessage("Photo upload error: " + msg);
         })
         .verifyPhotoOtpAndUpload(currentMemberData.memberId, email, otp, photoBase64ForUpload);
     }
@@ -3115,7 +3259,8 @@
           if (mobileCameraStream) { mobileCameraStream.getTracks().forEach(function(t){ t.stop(); }); mobileCameraStream = null; }
         }).withFailureHandler(function(err){
           document.getElementById("mobilePhotoPreview").innerHTML = "";
-          showCustomMessage("Cloud Vision quota limit पुगेको छ । केही समयपछि फेरि प्रयास गर्नुहोस् ।");
+          const msg = err && err.message ? err.message : String(err || "Photo upload error");
+          showCustomMessage("Photo upload error: " + msg);
         })
         .verifyPhotoOtpAndUpload(mobileUploadMemberId, email, otp, mobilePhotoBase64ForUpload);
     }
@@ -4619,6 +4764,16 @@
 
       showHomeScreen();
     };
-  </script>
+  
+    // Warm-up local face libraries in the background.
+    window.addEventListener("load", function() {
+      setTimeout(function() {
+        ensureLocalFaceLibraries_().catch(function(err) {
+          console.warn("Face Check warm-up failed; selection will retry.", err);
+        });
+      }, 600);
+    });
+
+</script>
 </body>
 </html>
