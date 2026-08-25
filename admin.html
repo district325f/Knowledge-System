@@ -20,6 +20,24 @@
     .main { margin-left:260px; width:calc(100% - 260px); padding:24px; }
     .topbar { display:flex; align-items:center; justify-content:space-between; gap:12px; background:#fff; padding:14px 18px; border-radius:18px; box-shadow:0 8px 22px rgba(15,76,129,.08); margin-bottom:18px; }
     .badge { padding:8px 12px; border-radius:999px; background:#eef4ff; color:#0f4c81; font-weight:800; font-size:13px; }
+    .topbar-actions { display:flex; align-items:center; gap:10px; }
+    .notification-bell { position:relative; width:42px; height:42px; border:1px solid #dbe7f6; border-radius:12px; background:#fff; color:#0f4c81; font-size:20px; cursor:pointer; }
+    .notification-badge { position:absolute; top:-7px; right:-7px; min-width:21px; height:21px; padding:0 5px; border-radius:999px; background:#dc2626; color:#fff; font-size:11px; font-weight:900; display:none; align-items:center; justify-content:center; border:2px solid #fff; }
+    .alert-grid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:10px; }
+    .alert-card { border:1px solid #e2e8f0; border-radius:15px; padding:13px; background:#f8fbff; cursor:pointer; }
+    .alert-card .alert-label { color:#64748b; font-size:12px; font-weight:800; line-height:1.35; }
+    .alert-card .alert-value { margin-top:6px; font-size:25px; font-weight:900; color:#174ab7; }
+    .alert-card.attention .alert-value { color:#c2410c; }
+    .notification-item { border:1px solid #e5e7eb; border-radius:14px; padding:13px; margin-bottom:10px; background:#fff; cursor:pointer; }
+    .notification-item.high { border-left:5px solid #dc2626; }
+    .notification-item.normal { border-left:5px solid #2563eb; }
+    .notification-item-title { font-weight:900; color:#0f4c81; }
+    .notification-item-detail { color:#64748b; font-size:13px; line-height:1.55; margin-top:5px; }
+    .health-status { display:inline-flex; align-items:center; gap:8px; padding:9px 14px; border-radius:999px; font-weight:900; }
+    .health-GREEN { background:#ecfdf5; color:#047857; }
+    .health-AMBER { background:#fff7ed; color:#c2410c; }
+    .health-RED { background:#fef2f2; color:#b91c1c; }
+    @media(max-width:900px){ .alert-grid{grid-template-columns:repeat(2,minmax(0,1fr));} }
     .panel { display:none; }
     .panel.active { display:block; }
     .card { background:#fff; border-radius:18px; padding:18px; box-shadow:0 8px 22px rgba(15,76,129,.08); margin-bottom:16px; }
@@ -890,6 +908,8 @@
     <button class="nav-btn super-only" data-panel="deleterequests" onclick="showPanel('deleterequests',this)">🗑 Delete Requests</button>
     <button class="nav-btn super-only" data-panel="approvals" onclick="showPanel('approvals',this)">🛡 Approval Settings</button>
     <button class="nav-btn super-only" data-panel="dataaudit" onclick="showPanel('dataaudit',this)">🔎 Data Change Audit</button>
+    <button class="nav-btn" data-panel="notifications" onclick="showPanel('notifications',this)">🔔 Notifications</button>
+    <button class="nav-btn super-only" data-panel="systemhealth" onclick="showPanel('systemhealth',this)">💚 System Health</button>
     <button class="nav-btn super-only" data-panel="securitycenter" onclick="showPanel('securitycenter',this)">🛡 Security Center</button>
     <button class="nav-btn super-only" data-panel="finalcheck" onclick="showPanel('finalcheck',this)">✅ Final System Check</button>
     <button class="nav-btn super-only" data-panel="performancecheck" onclick="showPanel('performancecheck',this)">⚡ Performance & Safety</button>
@@ -905,7 +925,12 @@
         <b id="welcomeName">Admin</b>
         <div style="font-size:13px;color:#64748b;" id="welcomeUser"></div>
       </div>
-      <span class="badge" id="roleBadge">ADMIN</span>
+      <div class="topbar-actions">
+        <button id="notificationBell" class="notification-bell" type="button" onclick="showPanel('notifications',null)" title="Notifications">🔔
+          <span id="notificationBadge" class="notification-badge">0</span>
+        </button>
+        <span class="badge" id="roleBadge">ADMIN</span>
+      </div>
     </div>
 
     <section id="panel-dashboard" class="panel active">
@@ -916,6 +941,10 @@
           <div class="stat">Allowed Modules<b id="statModules">0</b></div>
           <div class="stat super-only">Admin Accounts<b id="statAdmins">0</b></div>
         </div>
+      </div>
+      <div class="card">
+        <h2>Live Alerts & Pending Work</h2>
+        <div id="dashboardAlerts" class="alert-grid"></div>
       </div>
       <div class="card">
         <h2>Available Modules</h2>
@@ -1219,6 +1248,27 @@
     </section>
 
 
+    <section id="panel-notifications" class="panel">
+      <div class="card">
+        <div class="actions" style="justify-content:space-between;align-items:center;">
+          <h2 style="margin:0;">🔔 Notification Center</h2>
+          <button class="secondary" onclick="loadNotifications(false)">Refresh</button>
+        </div>
+        <div id="notificationList" style="margin-top:14px;"></div>
+      </div>
+    </section>
+
+    <section id="panel-systemhealth" class="panel super-only">
+      <div class="card">
+        <div class="actions" style="justify-content:space-between;align-items:center;">
+          <h2 style="margin:0;">💚 System Health Dashboard</h2>
+          <button class="secondary" onclick="loadAdvancedSystemHealth()">Refresh</button>
+        </div>
+        <div id="systemHealthSummary" style="margin-top:14px;"></div>
+      </div>
+      <div class="card"><div id="systemHealthDetails"></div></div>
+    </section>
+
     <section id="panel-securitycenter" class="panel super-only">
       <div class="card">
         <h2>Super Admin Security Center</h2>
@@ -1516,6 +1566,8 @@ function actionLabel(action) {
     adminLogout:'Logout हुँदैछ...',
     adminGetSession:'Session जाँच हुँदैछ...',
     adminGetDashboard:'Dashboard load हुँदैछ...',
+    adminGetNotifications:'Notifications load हुँदैछन्...',
+    adminGetAdvancedSystemHealth:'System health जाँच हुँदैछ...',
     adminChangeOwnPassword:'Password update हुँदैछ...',
     superAdminListAdmins:'Admin list load हुँदैछ...',
     superAdminCreateAdmin:'Admin account तयार हुँदैछ...',
@@ -1759,7 +1811,10 @@ async function openApp() {
   try {
     const dash=await api('adminGetDashboard',[sessionToken]);
     if(dash.adminSummary) document.getElementById('statAdmins').textContent=dash.adminSummary.totalAccounts||0;
+    renderDashboardAlerts(dash.alerts||{});
   } catch(e) {}
+
+  try { await loadNotifications(true); } catch(e) {}
 
   if(currentUser.role==='SUPER_ADMIN') {
     await loadAdmins();
@@ -1782,6 +1837,94 @@ async function openApp() {
     },500);
   }
   updateMobileAdminChrome();
+}
+
+
+function renderDashboardAlerts(a) {
+  a=a||{};
+  const box=document.getElementById('dashboardAlerts');
+  if(!box) return;
+  const isSuper=currentUser&&currentUser.role==='SUPER_ADMIN';
+  const cards=[
+    {label:'Pending Member Requests',value:Number(a.pendingMemberRequests||0),panel:'memberrequests',attention:Number(a.pendingMemberRequests||0)>0},
+    {label:'Incomplete Profiles',value:Number(a.profileIncomplete||0),panel:isSuper?'profileprogress':'membermanage',attention:false},
+    {label:'Profile Average',value:String(Number(a.profileAveragePercent||0))+'%',panel:isSuper?'profileprogress':'membermanage',attention:false}
+  ];
+  if(isSuper) {
+    cards.push(
+      {label:'Pending Delete Requests',value:Number(a.pendingDeleteRequests||0),panel:'deleterequests',attention:Number(a.pendingDeleteRequests||0)>0},
+      {label:'Import Attention',value:Number(a.importAttention||0),panel:'memberimport',attention:Number(a.importAttention||0)>0},
+      {label:'Security Events (24h)',value:Number(a.securityEvents24h||0),panel:'securityevents',attention:false}
+    );
+  }
+  box.innerHTML=cards.map(c=>
+    '<div class="alert-card '+(c.attention?'attention':'')+'" onclick="showPanel(\''+c.panel+'\',null)">'+
+      '<div class="alert-label">'+esc(c.label)+'</div>'+
+      '<div class="alert-value">'+esc(c.value)+'</div>'+
+    '</div>'
+  ).join('');
+}
+
+async function loadNotifications(badgeOnly) {
+  try {
+    const data=await api('adminGetNotifications',[sessionToken]);
+    const badge=document.getElementById('notificationBadge');
+    const count=Number(data&&data.unreadCount||0);
+    if(badge) {
+      badge.textContent=count>99?'99+':String(count);
+      badge.style.display=count>0?'inline-flex':'none';
+    }
+    if(badgeOnly) return;
+
+    const box=document.getElementById('notificationList');
+    if(!box) return;
+    const items=(data&&data.items)||[];
+    if(!items.length) {
+      box.innerHTML='<div class="notice" style="background:#ecfdf5;border-color:#a7f3d0;color:#047857;">अहिले कुनै pending notification छैन ।</div>';
+      return;
+    }
+    box.innerHTML=items.map(n=>
+      '<div class="notification-item '+(String(n.priority).toLowerCase()==='high'?'high':'normal')+'" onclick="showPanel(\''+escAttr(n.panel||'dashboard')+'\',null)">'+
+        '<div class="notification-item-title">'+esc(n.title||'Notification')+' <span class="badge">'+esc(n.count||0)+'</span></div>'+
+        '<div class="notification-item-detail">'+esc(n.detail||'')+'</div>'+
+      '</div>'
+    ).join('');
+  } catch(e) {
+    if(!badgeOnly) {
+      const box=document.getElementById('notificationList');
+      if(box) box.innerHTML='<div class="notice">'+esc(e.message||e)+'</div>';
+    }
+  }
+}
+
+async function loadAdvancedSystemHealth() {
+  const summary=document.getElementById('systemHealthSummary');
+  const details=document.getElementById('systemHealthDetails');
+  if(summary) summary.innerHTML='<div style="padding:12px;">System health जाँच हुँदैछ...</div>';
+  try {
+    const h=await api('adminGetAdvancedSystemHealth',[sessionToken]);
+    if(summary) {
+      summary.innerHTML=
+        '<span class="health-status health-'+escAttr(h.overall||'AMBER')+'">● '+esc(h.overall||'UNKNOWN')+'</span>'+
+        '<div class="grid" style="margin-top:14px;">'+
+          '<div class="stat">Members<b>'+esc(h.memberCount||0)+'</b></div>'+
+          '<div class="stat">Duplicate Member IDs<b>'+esc(h.duplicateMemberIds||0)+'</b></div>'+
+          '<div class="stat">Active Sessions<b>'+esc(h.activeSessions||0)+'</b></div>'+
+          '<div class="stat">Profile Average<b>'+esc((h.profileCompleteness&&h.profileCompleteness.averagePercent)||0)+'%</b></div>'+
+        '</div>';
+    }
+    let html='<h2>Core Checks</h2><div style="overflow:auto;"><table><thead><tr><th>Check</th><th>Status</th><th>Detail</th></tr></thead><tbody>';
+    (h.sheetChecks||[]).forEach(s=>{
+      html+='<tr><td>Sheet: '+esc(s.name)+'</td><td>'+(s.ok?'✅ PASS':'❌ FAIL')+'</td><td>Rows: '+esc(s.rows||0)+'</td></tr>';
+    });
+    html+='<tr><td>Google Drive / Members Photo</td><td>'+(h.driveOk?'✅ PASS':'❌ FAIL')+'</td><td>'+esc(h.driveDetail||'')+'</td></tr>';
+    html+='<tr><td>Last Backup</td><td>'+(h.lastBackup?'✅':'⚠️')+'</td><td>'+esc(h.lastBackup||'No backup record')+'</td></tr>';
+    html+='<tr><td>Last Import</td><td>'+esc(h.lastImportStatus||'-')+'</td><td>'+esc(h.lastImportUpdated||'-')+'</td></tr>';
+    html+='</tbody></table></div>';
+    if(details) details.innerHTML=html;
+  } catch(e) {
+    if(summary) summary.innerHTML='<div class="notice">'+esc(e.message||e)+'</div>';
+  }
 }
 
 function renderModules() {
@@ -1824,6 +1967,8 @@ function showPanel(name,btn) {
   if(name==='securitycenter' && currentUser && currentUser.role==='SUPER_ADMIN') loadSecurityCenter();
   if(name==='finalcheck' && currentUser && currentUser.role==='SUPER_ADMIN') runFinalDiagnostics();
   if(name==='performancecheck' && currentUser && currentUser.role==='SUPER_ADMIN') runPerformanceSafetyCheck();
+  if(name==='notifications') loadNotifications(false);
+  if(name==='systemhealth' && currentUser && currentUser.role==='SUPER_ADMIN') loadAdvancedSystemHealth();
 }
 
 async function logout() {
@@ -2115,6 +2260,9 @@ async function openModuleEditor(moduleKey,rowNumber) {
     }
 
     let html='<h2>'+(rowNumber?'Edit Record':'Add New Record')+'</h2>';
+    if(moduleKey==='QUIZ') {
+      html+='<div class="notice" style="margin-bottom:12px;">🧠 Duplicate & Similar Question Guard active छ । Existing Question सँग धेरै मिलेको Question save गर्दा system ले रोक्छ ।</div>';
+    }
     html+='<input type="hidden" id="'+prefix+'EditRow" value="'+(record.rowNumber||0)+'">';
     fields.forEach(f=>{
       const val=record[f.key]||'';
@@ -2216,7 +2364,9 @@ async function findMemberManage() {
 
 function renderMemberManage(d) {
   const p=getModulePermission('MEMBERS');
+  const pc=d.profileCompleteness||{};
   let html='<div class="card"><h2>'+esc(d.name||'Member')+'</h2><div class="badge">'+esc(d.memberId)+' • '+esc(d.club||'')+'</div>';
+  html+='<div style="margin-top:10px;"><span class="badge">Profile Complete: '+esc(pc.percent==null?0:pc.percent)+'%</span></div>';
   html+='<div class="grid" style="margin-top:14px;">';
   (d.fields||[]).forEach(f=>{
     html+='<div><label>'+esc(f.label)+'</label>';
