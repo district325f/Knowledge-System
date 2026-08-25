@@ -4135,6 +4135,8 @@
                 photoHtml +
                 '<div class="member-name">' + escapeHtmlClient((currentMemberData.name || '') + ((currentMemberData.memberId || '') ? ' (' + currentMemberData.memberId + ')' : '')) + '</div>' +
                 '<div class="member-club">' + escapeHtmlClient(data.club || '') + '</div>' +
+                '<div style="margin-top:10px;display:inline-block;padding:7px 12px;border-radius:999px;background:#eef4ff;color:#0f4c81;font-weight:800;font-size:13px;">Profile Complete: ' +
+                  escapeHtmlClient(data.profileCompleteness && data.profileCompleteness.percent != null ? data.profileCompleteness.percent : 0) + '%</div>' +
               '</div>' +
               '<div class="member-grid">' +
                 buildMemberFieldsHtml(data, { includeEmpty: true }) +
