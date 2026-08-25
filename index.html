@@ -2286,6 +2286,11 @@
       }
     }
   </style>
+
+  <!-- Local browser photo validation: no API key/quota -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface@0.1.0/dist/blazeface.min.js"></script>
+
 </head>
 <body>
   <div class="container">
@@ -2675,65 +2680,217 @@
 
     function closePhotoUpdatePanel() { document.getElementById("photoUpdatePanel").style.display = "none"; }
 
-    function prepareImageFileForUpload(file, previewElementId, callback) {
-      if (!file) return;
 
-      const allowedTypes = ["image/jpeg","image/png"];
-      if (allowedTypes.indexOf(String(file.type || "").toLowerCase()) === -1) {
+    let localFaceModel = null;
+    let localFaceModelLoading = null;
+
+    async function getLocalFaceModel_() {
+      if (localFaceModel) return localFaceModel;
+      if (localFaceModelLoading) return localFaceModelLoading;
+
+      localFaceModelLoading = (async function() {
+        if (!window.tf || !window.blazeface) {
+          throw new Error("System Face Check load हुन सकेन । Internet connection check गरेर फेरि प्रयास गर्नुहोस् ।");
+        }
+        await tf.ready();
+        localFaceModel = await blazeface.load();
+        return localFaceModel;
+      })();
+
+      try {
+        return await localFaceModelLoading;
+      } finally {
+        localFaceModelLoading = null;
+      }
+    }
+
+    function computePhotoBrightness_(canvas) {
+      const w=Math.min(canvas.width,320), h=Math.min(canvas.height,320);
+      const temp=document.createElement("canvas");
+      temp.width=w; temp.height=h;
+      const ctx=temp.getContext("2d",{willReadFrequently:true});
+      ctx.drawImage(canvas,0,0,w,h);
+      const d=ctx.getImageData(0,0,w,h).data;
+      let sum=0,n=0;
+      for(let i=0;i<d.length;i+=16){
+        sum += 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
+        n++;
+      }
+      return n ? sum/n : 0;
+    }
+
+    function computePhotoSharpness_(canvas) {
+      const w=Math.min(canvas.width,320), h=Math.min(canvas.height,320);
+      const temp=document.createElement("canvas");
+      temp.width=w; temp.height=h;
+      const ctx=temp.getContext("2d",{willReadFrequently:true});
+      ctx.drawImage(canvas,0,0,w,h);
+      const d=ctx.getImageData(0,0,w,h).data;
+      const gray=new Float32Array(w*h);
+
+      for(let i=0,p=0;i<d.length;i+=4,p++){
+        gray[p]=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
+      }
+
+      let sum=0,sumSq=0,n=0;
+      for(let y=1;y<h-1;y+=2){
+        for(let x=1;x<w-1;x+=2){
+          const p=y*w+x;
+          const lap=4*gray[p]-gray[p-1]-gray[p+1]-gray[p-w]-gray[p+w];
+          sum+=lap; sumSq+=lap*lap; n++;
+        }
+      }
+
+      if(!n) return 0;
+      const mean=sum/n;
+      return (sumSq/n)-(mean*mean);
+    }
+
+    async function validateOfficialPhotoLocally_(img,canvas) {
+      if(img.naturalWidth<400 || img.naturalHeight<400){
+        throw new Error("Photo resolution कम्तीमा 400×400 px हुनुपर्छ ।");
+      }
+
+      const brightness=computePhotoBrightness_(canvas);
+      if(brightness<55){
+        throw new Error("Photo धेरै dark छ । कृपया राम्रो प्रकाश भएको official photo upload गर्नुहोस् ।");
+      }
+      if(brightness>235){
+        throw new Error("Photo धेरै overexposed/उज्यालो छ । कृपया अर्को clear photo upload गर्नुहोस् ।");
+      }
+
+      const sharpness=computePhotoSharpness_(canvas);
+      if(sharpness<80){
+        throw new Error("Photo blur/unclear देखिन्छ । कृपया clear official photo upload गर्नुहोस् ।");
+      }
+
+      const model=await getLocalFaceModel_();
+      const faces=await model.estimateFaces(canvas,false);
+
+      if(!Array.isArray(faces) || faces.length===0){
+        throw new Error("Photo मा स्पष्ट मानव अनुहार भेटिएन । कृपया official profile photo upload गर्नुहोस् ।");
+      }
+      if(faces.length>1){
+        throw new Error("Photo मा एकभन्दा बढी व्यक्ति भेटिए । एकजना सदस्यको मात्र photo upload गर्नुहोस् ।");
+      }
+
+      const f=faces[0];
+      const tl=f.topLeft||[0,0], br=f.bottomRight||[0,0];
+      const x1=Number(tl[0]||0), y1=Number(tl[1]||0);
+      const x2=Number(br[0]||0), y2=Number(br[1]||0);
+      const fw=Math.max(0,x2-x1), fh=Math.max(0,y2-y1);
+      const faceRatio=(fw*fh)/Math.max(1,canvas.width*canvas.height);
+
+      if(fw<100 || fh<100 || faceRatio<0.07){
+        throw new Error("Photo मा अनुहार धेरै सानो छ । Face स्पष्ट देखिने profile photo upload गर्नुहोस् ।");
+      }
+      if(faceRatio>0.65){
+        throw new Error("Photo अत्यधिक close-up/selfie crop जस्तो छ । Proper profile framing भएको photo upload गर्नुहोस् ।");
+      }
+
+      const cx=(x1+x2)/2, cy=(y1+y2)/2;
+      const dx=Math.abs(cx-canvas.width/2)/canvas.width;
+      const dy=Math.abs(cy-canvas.height/2)/canvas.height;
+      if(dx>0.22 || dy>0.22){
+        throw new Error("Face photo को center मा छैन । कृपया centered official photo upload गर्नुहोस् ।");
+      }
+
+      const lm=Array.isArray(f.landmarks)?f.landmarks:[];
+      if(lm.length>=4){
+        const reye=lm[0], leye=lm[1], nose=lm[2], mouth=lm[3];
+        const eyeDx=Math.abs(Number(leye[0])-Number(reye[0]));
+        const eyeDy=Math.abs(Number(leye[1])-Number(reye[1]));
+
+        if(eyeDx>0 && eyeDy/eyeDx>0.22){
+          throw new Error("Head/face धेरै tilted देखिन्छ । कृपया straight official photo upload गर्नुहोस् ।");
+        }
+
+        const eyeMidX=(Number(leye[0])+Number(reye[0]))/2;
+        const eyeMidY=(Number(leye[1])+Number(reye[1]))/2;
+        const noseDx=Math.abs(Number(nose[0])-eyeMidX)/Math.max(1,fw);
+        const mouthDx=Math.abs(Number(mouth[0])-eyeMidX)/Math.max(1,fw);
+
+        if(noseDx>0.16 || mouthDx>0.18){
+          throw new Error("Face धेरै side angle मा देखिन्छ । कृपया अगाडिबाट खिचिएको official photo upload गर्नुहोस् ।");
+        }
+
+        if(Number(nose[1])<=eyeMidY || Number(mouth[1])<=Number(nose[1])){
+          throw new Error("Face landmarks स्पष्ट छैनन् । कृपया अर्को clear official photo upload गर्नुहोस् ।");
+        }
+      }
+
+      return true;
+    }
+
+    async function prepareImageFileForUpload(file, previewElementId, callback) {
+      if(!file) return;
+
+      const allowed=["image/jpeg","image/png"];
+      if(allowed.indexOf(String(file.type||"").toLowerCase())===-1){
         showCustomMessage("JPG/JPEG वा PNG photo मात्र upload गर्न मिल्छ ।");
         return;
       }
 
-      if (file.size > 2 * 1024 * 1024) {
+      if(file.size>2*1024*1024){
         showCustomMessage("Photo size 2 MB भन्दा ठूलो छ । कृपया 2 MB भन्दा सानो photo छान्नुहोस् ।");
         return;
       }
 
-      const reader = new FileReader();
-      reader.onload = function(evt) {
-        const img = new Image();
+      const reader=new FileReader();
 
-        img.onload = function() {
-          if (img.naturalWidth < 400 || img.naturalHeight < 400) {
-            showCustomMessage("Photo resolution कम्तीमा 400×400 px हुनुपर्छ ।");
-            document.getElementById(previewElementId).innerHTML = "";
-            photoBase64ForUpload = "";
-            return;
+      reader.onload=async function(evt){
+        const img=new Image();
+
+        img.onload=async function(){
+          try{
+            const work=document.createElement("canvas");
+            work.width=img.naturalWidth;
+            work.height=img.naturalHeight;
+            work.getContext("2d").drawImage(img,0,0);
+
+            document.getElementById(previewElementId).innerHTML =
+              '<div class="loading-wrap"><span class="spinner"></span><span class="loading-text">System Photo Check हुँदैछ...</span></div>';
+
+            await validateOfficialPhotoLocally_(img,work);
+
+            const maxSide=1400;
+            let w=img.naturalWidth,h=img.naturalHeight;
+            if(w>h && w>maxSide){h=Math.round(h*maxSide/w);w=maxSide;}
+            if(h>=w && h>maxSide){w=Math.round(w*maxSide/h);h=maxSide;}
+
+            const canvas=document.createElement("canvas");
+            canvas.width=w; canvas.height=h;
+            canvas.getContext("2d").drawImage(img,0,0,w,h);
+
+            const jpeg=canvas.toDataURL("image/jpeg",0.86);
+            const b64=jpeg.split(",")[1]||"";
+            const approxBytes=Math.floor(b64.length*3/4);
+
+            if(approxBytes>2*1024*1024){
+              photoBase64ForUpload="";
+              document.getElementById(previewElementId).innerHTML="";
+              showCustomMessage("Compressed photo पनि 2 MB भन्दा ठूलो भयो । कृपया अर्को photo छान्नुहोस् ।");
+              return;
+            }
+
+            document.getElementById(previewElementId).innerHTML='<img src="'+jpeg+'" alt="Preview">';
+            callback(b64);
+            showCustomMessage("System Photo Check PASS भयो । अब OTP verify गरेर photo upload गर्न सक्नुहुन्छ ।");
+
+          }catch(err){
+            photoBase64ForUpload="";
+            document.getElementById(previewElementId).innerHTML="";
+            showCustomMessage(err && err.message ? err.message : String(err));
           }
-
-          const maxSide = 1400;
-          let w = img.width, h = img.height;
-          if (w > h && w > maxSide) { h = Math.round(h * maxSide / w); w = maxSide; }
-          if (h >= w && h > maxSide) { w = Math.round(w * maxSide / h); h = maxSide; }
-
-          const canvas = document.createElement("canvas");
-          canvas.width = w;
-          canvas.height = h;
-          canvas.getContext("2d").drawImage(img, 0, 0, w, h);
-
-          // JPEG compression also reduces Cloud Vision payload and quota pressure.
-          const jpegData = canvas.toDataURL("image/jpeg", 0.86);
-
-          // Final compressed payload guard.
-          const approxBytes = Math.floor((jpegData.split(",")[1] || "").length * 3 / 4);
-          if (approxBytes > 2 * 1024 * 1024) {
-            showCustomMessage("Compressed photo पनि 2 MB भन्दा ठूलो भयो । कृपया अर्को photo छान्नुहोस् ।");
-            document.getElementById(previewElementId).innerHTML = "";
-            photoBase64ForUpload = "";
-            return;
-          }
-
-          document.getElementById(previewElementId).innerHTML =
-            '<img src="' + jpegData + '" alt="Preview">';
-
-          callback(jpegData.split(",")[1]);
         };
 
-        img.onerror = function(){
+        img.onerror=function(){
+          photoBase64ForUpload="";
+          document.getElementById(previewElementId).innerHTML="";
           showCustomMessage("Photo read गर्न सकिएन । अर्को image select गर्नुहोस् ।");
         };
 
-        img.src = evt.target.result;
+        img.src=evt.target.result;
       };
 
       reader.readAsDataURL(file);
@@ -2816,7 +2973,7 @@
       if (!currentMemberData) { showCustomMessage("पहिला Member Search गर्नुहोस् ।"); return; }
       if (!isPhotoOtpVerified) { showCustomMessage("पहिला OTP verify गर्नुहोस् ।"); return; }
       if (!photoBase64ForUpload) { showCustomMessage("पहिला फोटो select गर्नुहोस् ।"); return; }
-      document.getElementById("photoPreview").innerHTML = '<div class="loading-wrap"><span class="spinner"></span><span class="loading-text">Official Photo Security Check हुँदैछ...</span></div>';
+      document.getElementById("photoPreview").innerHTML = '<div class="loading-wrap"><span class="spinner"></span><span class="loading-text">Photo upload हुँदैछ...</span></div>';
       google.script.run.withSuccessHandler(function(){
           showCustomMessage("Photo सफलतापूर्वक update भयो ।");
           searchMemberData(); closePhotoUpdatePanel(); document.getElementById("photoPreview").innerHTML = ""; fileInput.value = ""; isPhotoOtpVerified = false; photoBase64ForUpload = "";
@@ -2952,7 +3109,7 @@
       if (!mobileUploadMemberId) { showCustomMessage("Member ID missing छ ।"); return; }
       if (!isMobileOtpVerified) { showCustomMessage("पहिला OTP verify गर्नुहोस् ।"); return; }
       if (!mobilePhotoBase64ForUpload) { showCustomMessage("पहिला फोटो खिच्नुहोस्/छान्नुहोस् ।"); return; }
-      document.getElementById("mobilePhotoPreview").innerHTML = '<div class="loading-wrap"><span class="spinner"></span><span class="loading-text">Official Photo Security Check हुँदैछ...</span></div>';
+      document.getElementById("mobilePhotoPreview").innerHTML = '<div class="loading-wrap"><span class="spinner"></span><span class="loading-text">Photo upload हुँदैछ...</span></div>';
       google.script.run.withSuccessHandler(function(){
           showCustomMessage("Photo सफलतापूर्वक update भयो ।"); document.getElementById("mobilePhotoPreview").innerHTML = ""; input.value = ""; isMobileOtpVerified = false; mobilePhotoBase64ForUpload = "";
           if (mobileCameraStream) { mobileCameraStream.getTracks().forEach(function(t){ t.stop(); }); mobileCameraStream = null; }
