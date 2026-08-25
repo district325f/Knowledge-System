@@ -910,6 +910,7 @@
     <button class="nav-btn super-only" data-panel="dataaudit" onclick="showPanel('dataaudit',this)">🔎 Data Change Audit</button>
     <button class="nav-btn" data-panel="notifications" onclick="showPanel('notifications',this)">🔔 Notifications</button>
     <button class="nav-btn super-only" data-panel="systemhealth" onclick="showPanel('systemhealth',this)">💚 System Health</button>
+    <button class="nav-btn super-only" data-panel="backuprestore" onclick="showPanel('backuprestore',this)">💾 Backup & Restore</button>
     <button class="nav-btn super-only" data-panel="securitycenter" onclick="showPanel('securitycenter',this)">🛡 Security Center</button>
     <button class="nav-btn super-only" data-panel="finalcheck" onclick="showPanel('finalcheck',this)">✅ Final System Check</button>
     <button class="nav-btn super-only" data-panel="performancecheck" onclick="showPanel('performancecheck',this)">⚡ Performance & Safety</button>
@@ -1258,6 +1259,35 @@
       </div>
     </section>
 
+    <section id="panel-backuprestore" class="panel super-only">
+      <div class="card">
+        <h2>💾 System Backup & Restore</h2>
+        <p style="color:#64748b;line-height:1.7;">
+          Full Google Sheet system को versioned backup Drive मा सुरक्षित हुन्छ ।
+          Restore गर्दा हालको state को safety backup स्वतः पहिले बनाइन्छ ।
+        </p>
+
+        <label>Backup Reason / Note</label>
+        <input id="systemBackupReason" placeholder="Example: Before major update">
+
+        <div class="actions" style="margin-top:12px;">
+          <button id="createSystemBackupBtn" class="primary" onclick="createSystemBackup()">Create Full Backup</button>
+          <button class="secondary" onclick="loadSystemBackups()">Refresh History</button>
+        </div>
+
+        <div class="notice" style="margin-top:14px;">
+          Automatic daily backup enable गर्न Apps Script editor बाट
+          <b>setupLKSDailySystemBackupTrigger()</b> एकपटक Run गर्नुहोस् ।
+          यसले daily करिब 2 AM मा backup बनाउँछ र latest 30 backup files राख्छ ।
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Version History</h2>
+        <div id="systemBackupHistory"></div>
+      </div>
+    </section>
+
     <section id="panel-systemhealth" class="panel super-only">
       <div class="card">
         <div class="actions" style="justify-content:space-between;align-items:center;">
@@ -1568,6 +1598,9 @@ function actionLabel(action) {
     adminGetDashboard:'Dashboard load हुँदैछ...',
     adminGetNotifications:'Notifications load हुँदैछन्...',
     adminGetAdvancedSystemHealth:'System health जाँच हुँदैछ...',
+    superAdminCreateSystemBackup:'Full system backup बन्दैछ...',
+    superAdminListSystemBackups:'Backup history load हुँदैछ...',
+    superAdminRestoreSystemBackup:'System restore हुँदैछ...',
     adminChangeOwnPassword:'Password update हुँदैछ...',
     superAdminListAdmins:'Admin list load हुँदैछ...',
     superAdminCreateAdmin:'Admin account तयार हुँदैछ...',
@@ -1927,6 +1960,103 @@ async function loadAdvancedSystemHealth() {
   }
 }
 
+
+let systemBackupRowsCache = [];
+
+async function createSystemBackup() {
+  const reason=document.getElementById('systemBackupReason').value.trim() || 'Manual Super Admin backup';
+
+  universalConfirm(
+    'Create Full System Backup',
+    'हालको पूर्ण Lions Knowledge System Google Sheet को backup Drive मा बनाउने हो ?\n\nReason: '+reason,
+    async function(){
+      try {
+        const r=await api('superAdminCreateSystemBackup',[sessionToken,reason]);
+        document.getElementById('systemBackupReason').value='';
+        await loadSystemBackups();
+        message('Full backup सफलतापूर्वक बन्यो ।\nBackup ID: '+(r.backupId||''));
+      } catch(e) {
+        message(e.message||e);
+      }
+    }
+  );
+}
+
+async function loadSystemBackups() {
+  const box=document.getElementById('systemBackupHistory');
+  if(!box) return;
+  box.innerHTML='<div style="padding:12px;">Backup history load हुँदैछ...</div>';
+
+  try {
+    const rows=await api('superAdminListSystemBackups',[sessionToken,50]);
+    systemBackupRowsCache=rows||[];
+
+    if(!systemBackupRowsCache.length) {
+      box.innerHTML='<div class="notice">अहिलेसम्म system backup history छैन ।</div>';
+      return;
+    }
+
+    let html='<div style="overflow:auto;"><table><thead><tr>'+
+      '<th>Backup ID</th><th>Date/Time</th><th>Reason</th><th>Created By</th><th>Status</th><th>Action</th>'+
+      '</tr></thead><tbody>';
+
+    systemBackupRowsCache.forEach(r=>{
+      html+='<tr>'+
+        '<td>'+esc(r.backupId||'')+'</td>'+
+        '<td>'+esc(r.timestamp||'')+'</td>'+
+        '<td>'+esc(r.reason||'')+'</td>'+
+        '<td>'+esc(r.username||r.adminId||'SYSTEM')+'</td>'+
+        '<td>'+esc(r.status||'ACTIVE')+'</td>'+
+        '<td class="actions">'+
+          (r.fileUrl?'<button class="secondary" onclick="window.open(\''+escAttr(r.fileUrl)+'\',\'_blank\')">Open Backup</button>':'')+
+          '<button class="danger" onclick="restoreSystemBackup(\''+escAttr(r.backupId||'')+'\')">Restore</button>'+
+        '</td>'+
+      '</tr>';
+    });
+
+    html+='</tbody></table></div>';
+    box.innerHTML=html;
+  } catch(e) {
+    box.innerHTML='<div class="notice">'+esc(e.message||e)+'</div>';
+  }
+}
+
+function restoreSystemBackup(backupId) {
+  const r=(systemBackupRowsCache||[]).find(x=>String(x.backupId)===String(backupId));
+  const info=r ? ((r.timestamp||'')+' | '+(r.reason||'')) : backupId;
+
+  const typed=prompt(
+    '⚠️ SYSTEM RESTORE\n\n'+
+    'Backup: '+info+'\n\n'+
+    'Restore अघि हालको system को safety backup स्वतः बनाइन्छ ।\n'+
+    'Restore confirm गर्न RESTORE लेख्नुहोस्:'
+  );
+
+  if(typed===null) return;
+  if(String(typed).trim()!=='RESTORE') {
+    return message('Restore cancel भयो । Confirmation text RESTORE मिलेन ।');
+  }
+
+  universalConfirm(
+    'Final Restore Confirmation',
+    'यो backup बाट system data restore गर्ने हो ?\n\nBackup ID: '+backupId+
+    '\n\nहालको state को safety backup पहिले स्वतः बनाइन्छ ।',
+    async function(){
+      try {
+        const res=await api('superAdminRestoreSystemBackup',[sessionToken,backupId,'RESTORE']);
+        await loadSystemBackups();
+        message(
+          'System restore सफल भयो ।\n'+
+          'Restored Backup: '+(res.restoredBackupId||backupId)+'\n'+
+          'Safety Backup: '+(res.safetyBackupId||'')
+        );
+      } catch(e) {
+        message(e.message||e);
+      }
+    }
+  );
+}
+
 function renderModules() {
   const box=document.getElementById('moduleCards');
   const visible=currentModules.filter(m=>m.canView);
@@ -1969,6 +2099,7 @@ function showPanel(name,btn) {
   if(name==='performancecheck' && currentUser && currentUser.role==='SUPER_ADMIN') runPerformanceSafetyCheck();
   if(name==='notifications') loadNotifications(false);
   if(name==='systemhealth' && currentUser && currentUser.role==='SUPER_ADMIN') loadAdvancedSystemHealth();
+  if(name==='backuprestore' && currentUser && currentUser.role==='SUPER_ADMIN') loadSystemBackups();
 }
 
 async function logout() {
