@@ -3558,12 +3558,51 @@
           });
 
           html += '</table>';
+          html += '<div id="mostActivePlayersBox" style="margin-top:22px;"></div>';
           box.innerHTML = html;
+          loadMostActivePlayers();
         })
         .withFailureHandler(function(error) {
           console.error(error);
         })
         .getLeaderboard();
+    }
+
+    function loadMostActivePlayers() {
+      google.script.run
+        .withSuccessHandler(function(rows) {
+          var box = document.getElementById("mostActivePlayersBox");
+          if (!box) return;
+
+          if (!rows || rows.length === 0) {
+            box.innerHTML = '';
+            return;
+          }
+
+          var html = '<div class="leaderboard-title">🎮 Top 10 Most Active Players</div>';
+          html += '<table class="leaderboard-table">';
+          html += '<tr><th>Rank</th><th>Name</th><th>Played</th></tr>';
+
+          rows.forEach(function(row, idx) {
+            var count = Number(row.playCount || 0);
+            html += '<tr>';
+            html += '<td>' + (idx + 1) + '</td>';
+            html += '<td>' + escapeHtmlClient(row.name || '') + '</td>';
+            html += '<td>' + count + (count === 1 ? ' Time' : ' Times') + '</td>';
+            html += '</tr>';
+          });
+
+          html += '</table>';
+          box.innerHTML = html;
+        })
+        .withFailureHandler(function(error) {
+          console.error(error);
+          var box = document.getElementById("mostActivePlayersBox");
+          if (box) {
+            box.innerHTML = '<div class="empty">Most Active Players load हुन सकेन ।</div>';
+          }
+        })
+        .getMostActivePlayers();
     }
 
     function loadProgramConfig() {
